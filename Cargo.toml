@@ -2,3 +2,7 @@
 name = "cities"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+nalgebra-glm = "0.18.0"
+rust-raylib = "0.45.11"
