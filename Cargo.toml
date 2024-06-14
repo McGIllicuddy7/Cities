@@ -2,6 +2,3 @@
 name = "cities"
 version = "0.1.0"
 edition = "2021"
-
-[dependencies]
-rust-raylib = "0.45.11"
