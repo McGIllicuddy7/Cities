@@ -1,6 +1,21 @@
-pub use nalgebra_glm::*;
-pub type Vector2 = TVec2<f64>;
-#[allow(unused)]
+#version 330
+
+// Input vertex attributes
+in vec3 vertexPosition;
+in vec2 vertexTexCoord;
+in vec3 vertexNormal;
+in vec4 vertexColor;
+
+// Input uniform values
+uniform mat4 mvp;
+
+// Output vertex attributes (to fragment shader)
+out vec2 fragTexCoord;
+out vec4 fragColor;
+
+// NOTE: Add here your custom variables
+in vec2 locations[500];
+in int locations_count;
 pub fn project_vector2_line(point:Vector2, start:Vector2, end:Vector2)->Vector2{
     if end == start{
         return end;
@@ -33,7 +48,12 @@ pub fn dist_point_to_line(point:Vector2, start:Vector2, end:Vector2)->f64{
         if d0<d1 {d0} else{ d1}
     }
 }
-#[allow(unused)]
-pub fn to_raylib_vec(v:Vector2)->rust_raylib::ffi::Vector2{
-    rust_raylib::ffi::Vector2{x: v.x as f32, y: v.y as f32} 
+void main()
+{
+    // Send vertex attributes to fragment shader
+    fragTexCoord = vertexTexCoord;
+    fragColor = vertexColor;
+
+    // Calculate final vertex position
+    gl_Position = mvp*vec4(vertexPosition, 1.0);
 }
