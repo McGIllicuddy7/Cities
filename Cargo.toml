@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 nalgebra-glm = "0.18.0"
-rust-raylib = "0.45.11"
+raylib = "5.0.1"
