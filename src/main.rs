@@ -4,14 +4,19 @@ mod context;
 use crate::math::*;
 pub fn main(){
     unsafe{
-        //raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
-        raylib::ffi::InitWindow(1000, 1000, "Hello Sailor\0".as_ptr() as * const i8);
+        raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
         let context = crate::context::Context::new(1000,1000);
-        let r = road::Road::new(&[vec2(250 as f64, 250 as f64), vec2(750 as f64, 750 as f64)]);
+        let r = road::generate_road(vec2(50 as f64, 50 as f64), &context);
+        raylib::ffi::InitWindow(1000, 1000, "Hello Sailor\0".as_ptr() as * const i8);
+        let tex = raylib::ffi::LoadRenderTexture(1000, 1000);
+        raylib::ffi::BeginTextureMode(tex.clone());
+        raylib::ffi::ClearBackground(raylib::color::Color::WHITE.into());
+        r.draw(&context); 
+        raylib::ffi::EndTextureMode();
         while !raylib::ffi::WindowShouldClose(){
             raylib::ffi::BeginDrawing();
-            raylib::ffi::ClearBackground(raylib::color::Color::BLACK.into());
-            r.draw(&context);
+            raylib::ffi::ClearBackground(raylib::color::Color::WHITE.into());
+            raylib::ffi::DrawTexture(tex.clone().texture, 0, 0, raylib::color::Color::WHITE.into());
             raylib::ffi::EndDrawing();
         }
     }

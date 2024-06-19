@@ -1,5 +1,8 @@
 
 
+use crate::context::Context;
+use raylib::ffi::GetRandomValue;
+
 use crate::math::*;
 #[allow(unused)]
 use std::ffi::c_void;
@@ -28,35 +31,26 @@ impl Road{
         }
         return min;
     }
+
     #[allow(unused)]
     pub fn draw(&self, context:&crate::context::Context){
         unsafe{
-            raylib::ffi::BeginMode3D(context.cam.clone());
-            let mut point_buff = [vec2(0 as f32,0 as f32); 512]; 
             for i in 0..self.points.len(){
-                point_buff[i].x = self.points[i].x as f32;
-                point_buff[i].y = self.points[i].y as f32;
-            }
-           // let count:i32 = self.points.len() as i32;
-           // let idx = raylib::ffi::GetShaderLocation(context.street_shader.clone(),"locations\0".as_ptr() as * const i8);
-           // raylib::ffi::SetShaderValueV(context.street_shader.clone(),idx, point_buff.as_ptr() as *const c_void, 1 as i32, 512);
-           // let count_idx = raylib::ffi::GetShaderLocation(context.street_shader.clone(),"count\0".as_ptr() as * const i8);
-           // raylib::ffi::SetShaderValue(context.street_shader.clone(), count_idx,std::ptr::from_ref(&count) as *const c_void,4 as i32);
-            raylib::ffi::DrawMesh(context.map_mesh.clone(), context.street_mat.clone(), context.street_location.clone());
-            raylib::ffi::EndMode3D();
-        }
-    }
-    #[allow(unused)]
-    pub fn draw_debug(&self, context:&crate::context::Context){
-        unsafe{
-            for y in 0..context.height{
-                for x in 0..context.width{
-                    let loc:Vector2 = vec2(x as f64, y as f64);
-                    if self.distance_to(loc) <10 as f64{
-                        raylib::ffi::DrawPixel(x,y, raylib::color::Color::BLUEVIOLET.into());
-                    }
-                }
+                let s= self.points[i];
+                let e = self.points[(i+1)%self.points.len()];
+                raylib::ffi::DrawLineEx(to_raylib_vec(s), to_raylib_vec(e), 4 as f32, raylib::color::Color::BLACK.into())
             }
         }
     }
+}
+#[allow(unused)]
+pub fn generate_road(start:Vector2, context:&Context)->Road{
+    let mut points:Vec<Vector2> = vec![start];
+    let mut most_recent = start;
+    let max = 0;
+    let mut arc_length = 0.0 ;
+    loop {
+        
+    }
+    return Road { points: points };
 }
