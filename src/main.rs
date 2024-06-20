@@ -2,7 +2,7 @@ mod city;
 mod context;
 mod math;
 mod road;
-use crate::math::*;
+
 pub fn main() {
     unsafe {
         raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
