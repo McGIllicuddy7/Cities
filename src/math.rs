@@ -56,3 +56,25 @@ pub fn to_raylib_vec(v: Vector2) -> raylib::ffi::Vector2 {
         y: v.y as f32,
     }
 }
+#[allow(unused)]
+pub fn gradient(v:&[Vector2], point:Vector2)->Vector2{
+    let mut out = vec2(0.0, 0.0);
+    for p in v{
+        let delta = p-point;
+        let grad = delta/length2(&delta);
+        out += grad;
+    }
+    return out;
+}
+#[allow(unused)]
+pub fn gradient_clamped(v:&[Vector2], point:Vector2, max_radius:f64)->Vector2{
+    let mut out = vec2(0.0, 0.0);
+    for p in v{
+        if distance(p, &point)<max_radius{
+            let delta = p-point;
+            let grad = delta/(length2(&delta));
+            out += grad;
+        }
+    }
+    return out;
+}
