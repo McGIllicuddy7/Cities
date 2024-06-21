@@ -7,9 +7,11 @@ use crate::math::*;
 use std::ffi::c_void;
 
 #[allow(unused)]
+#[derive(Clone)]
 pub struct Road {
     pub points: Vec<Vector2>,
 }
+
 impl Road {
     #[allow(unused)]
     pub fn new(points: &[Vector2]) -> Self {
@@ -55,26 +57,60 @@ fn single_road_gradient(road:&Road, location:Vector2)->Vector2{
         let delta = vec2(mu, 0.0);
         let test_location0 = location+delta;
         let test_location1 = location-delta;
-        let gradient_x_0 = road.distance_to(test_location0);
-        let gradient_x_1 = road.distance_to(test_location1);
+        let gradient_x_0 = base-road.distance_to(test_location0);
+        let gradient_x_1 = base-road.distance_to(test_location1);
         vec2((gradient_x_0-gradient_x_1)/mu,0.0)
     };
     let partial_y = {
         let delta = vec2(0.0, mu);
         let test_location0 = location+delta;
         let test_location1 = location-delta;
-        let gradient_y_0 = road.distance_to(test_location0);
-        let gradient_y_1 = road.distance_to(test_location1);
+        let gradient_y_0 = base-road.distance_to(test_location0);
+        let gradient_y_1 = base-road.distance_to(test_location1);
         vec2(0.0,(gradient_y_0-gradient_y_1)/mu)
     };
     return partial_x+partial_y;
 }
 #[allow(unused)]
-pub fn road_gradient(roads:&[Road], location:Vector2){
+fn single_road_gradient_clamped(road:&Road, location:Vector2,radius: f64)->Vector2{
+    let mu = 0.01;
+    let base = road.distance_to(location);
+    if base>radius{
+        return vec2(0.0, 0.0);
+    }
+    let partial_x = {
+        let delta = vec2(mu, 0.0);
+        let test_location0 = location+delta;
+        let test_location1 = location-delta;
+        let gradient_x_0 = base-road.distance_to(test_location0);
+        let gradient_x_1 = base-road.distance_to(test_location1);
+        vec2((gradient_x_0-gradient_x_1)/mu,0.0)
+    };
+    let partial_y = {
+        let delta = vec2(0.0, mu);
+        let test_location0 = location+delta;
+        let test_location1 = location-delta;
+        let gradient_y_0 = base-road.distance_to(test_location0);
+        let gradient_y_1 = base-road.distance_to(test_location1);
+        vec2(0.0,(gradient_y_0-gradient_y_1)/mu)
+    };
+    return partial_x+partial_y;
+}
+#[allow(unused)]
+pub fn road_gradient(roads:&[Road], location:Vector2)->Vector2{
     let mut out = vec2(0.0, 0.0);
     for r in roads{
         out += single_road_gradient(r, location);
     }
+    return 1.0*out;
+}
+#[allow(unused)]
+pub fn road_gradient_clamped(roads:&[Road], location:Vector2, radius:f64)->Vector2{
+    let mut out = vec2(0.0, 0.0);
+    for r in roads{
+        out += single_road_gradient_clamped(r, location, radius);
+    }
+    return 1.0*out;
 }
 #[allow(unused)]
 pub fn generate_road(start: Vector2, context: &Context) -> Road {
@@ -99,32 +135,38 @@ pub fn generate_road(start: Vector2, context: &Context) -> Road {
     }
     return Road { points: points };
 }
-fn figure_out_direction(locations:&[Vector2], input_vec:Vector2, location:Vector2)->Vector2{
-    let grad = gradient_clamped(locations, location,50.0);
+fn figure_out_direction(locations:&[Road], input_vec:Vector2, location:Vector2)->Vector2{
+    let grad = road_gradient_clamped(locations, location,50.0);
     let mut l = length(&grad);
-    l = l*l*l*l*l;
+    l *= l*l*l;
+    if l>1.0{
+        l = 1.0;
+    }
     let theta0 = angle(&-grad, &input_vec);
-    let theta1 = unsafe{GetRandomValue(-3140, 3140)} as f64/6000.0;
+    let theta1 = unsafe{GetRandomValue(-3140, 3140)} as f64/3000.0;
     let theta = theta0*l+theta1*(1.0-l);
     return rotate_vec2(&input_vec, theta);
 }
-fn generate_roads_internal(start: Vector2, radius:f64, context:&Context, in_velocity:Vector2, depth:u64, locations:&mut Vec<Vector2>)->Vec<Road>{
+fn generate_roads_internal(start: Vector2, radius:f64, context:&Context, in_velocity:Vector2, depth:u64, inroads:&[Road])->Vec<Road>{
+    println!("{}", depth);
     let center = vec2((context.width / 2) as f64, (context.height / 2) as f64);
-    let mut out = vec![];
+    let mut out:Vec<Road> = vec![];
+    for r in inroads{
+        out.push(r.clone());
+    }
     let mut points: Vec<Vector2> = vec![start];
     let mut velocity = in_velocity;
     let mut most_recent = start;
     let mut arc_length = 0.0;
     let mut split_count = 0;
     loop {
-        let length = unsafe { raylib::ffi::GetRandomValue(16, 32) } as f64;
+        let length = unsafe { raylib::ffi::GetRandomValue(50, 75) } as f64;
         let point = most_recent + velocity * length;
         most_recent = point;
-        velocity = figure_out_direction(locations.as_slice(), velocity, most_recent);
+        velocity = figure_out_direction(out.as_slice(), velocity, most_recent);
         points.push(point);
-        locations.push(point);
         arc_length += length;
-        if arc_length > 10000.0 || distance(&center,&most_recent)>radius {
+        if arc_length > 1000.0 || distance(&center,&most_recent)>radius {
             break;
         }
         if arc_length>800.{
@@ -135,10 +177,10 @@ fn generate_roads_internal(start: Vector2, radius:f64, context:&Context, in_velo
                 break;
             }
         }
-        if depth<3{
+        if depth<4{
             if arc_length/split_count as f64 >150.0{
-                if unsafe{GetRandomValue(0, 2)}<1{
-                    let mut tmp = generate_roads_internal(most_recent, radius, context,rotate_vec2(&velocity, 3.141592/2.0*unsafe{raylib::ffi::GetRandomValue(0, 2)*2-1} as f64),depth+1,locations);
+                if unsafe{GetRandomValue(0, 5)}<1{
+                    let mut tmp = generate_roads_internal(most_recent, radius, context,rotate_vec2(&velocity, 3.141592/2.0*unsafe{raylib::ffi::GetRandomValue(0, 2)*2-1} as f64),depth+1,out.as_slice());
                     split_count += 1;
                     out.append(&mut tmp);
                 }
@@ -161,5 +203,7 @@ pub fn generate_roads(radius: f64, context: &Context) -> Vec<Road> {
     };
     let velocity = normalize(&(center - start));
     let mut locs = vec![];
-    return generate_roads_internal(start, radius, context, velocity,0, &mut locs);
+    let out =  generate_roads_internal(start, radius, context, velocity,0, &mut locs);
+    println!("finished generation");
+    return out;
 }
