@@ -1,16 +1,17 @@
 use crate::context::Context;
 use crate::road;
-pub struct City{
-    roads:Vec<road::Road>
+pub struct City {
+    roads: Vec<road::Road>,
 }
-impl City{
-    pub fn new(radius:f64, context:&Context)->Self{
-        let roads = road::generate_roads(radius, context);
-        return Self{roads:roads};
+impl City {
+    pub fn new(radius: f64, context: &Context) -> Self {
+        let roads = road::generate_roads_by_ring_system(radius, context);
+        return Self { roads: roads };
     }
-    pub fn draw(&self, context:&Context){
-        for r in &self.roads{
+    pub fn draw(&self, context: &Context) {
+        for r in &self.roads {
             r.draw(context);
         }
     }
 }
+
