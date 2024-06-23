@@ -1,5 +1,3 @@
-use raylib::ffi::GetRandomValue;
-
 use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
@@ -50,6 +48,10 @@ impl Road {
                 )
             }
         }
+    }
+    #[allow(unused)]
+    pub fn point_index(&self, point:Vector2)->Option<usize>{
+        return None;
     }
 }
 
@@ -124,104 +126,6 @@ pub fn road_gradient_clamped(roads: &[Road], location: Vector2, radius: f64) -> 
 }
 
 #[allow(unused)]
-pub fn generate_road(start: Vector2, context: &Context) -> Road {
-    let center = vec2((context.width / 2) as f64, (context.height / 2) as f64);
-    let mut points: Vec<Vector2> = vec![start];
-    let mut velocity = normalize(&(center - start));
-    let mut most_recent = start;
-    let mut arc_length = 0.0;
-    loop {
-        let length = unsafe { raylib::ffi::GetRandomValue(16, 32) } as f64;
-        let point = most_recent + velocity * length;
-        velocity = rotate_vec2(
-            &velocity,
-            unsafe { raylib::ffi::GetRandomValue(-314, 314) } as f64 / 600.0,
-        );
-        most_recent = point;
-        points.push(point);
-        arc_length += length;
-        if arc_length > 10000.0 {
-            break;
-        }
-    }
-    return Road { points: points };
-}
-
-fn figure_out_direction(locations: &[Road], input_vec: Vector2, location: Vector2) -> Vector2 {
-    let grad = road_gradient_clamped(locations, location, 50.0);
-    let mut l = length(&grad);
-    l *= l * l * l;
-    if l > 1.0 {
-        l = 1.0;
-    }
-    let theta0 = angle(&-grad, &input_vec);
-    let theta1 = unsafe { GetRandomValue(-3140, 3140) } as f64 / 3000.0;
-    let theta = theta0 * l + theta1 * (1.0 - l);
-    return rotate_vec2(&input_vec, theta);
-}
-
-fn generate_roads_internal(
-    start: Vector2,
-    radius: f64,
-    context: &Context,
-    in_velocity: Vector2,
-    depth: u64,
-    inroads: &[Road],
-) -> Vec<Road> {
-    println!("{}", depth);
-    let center = vec2((context.width / 2) as f64, (context.height / 2) as f64);
-    let mut out: Vec<Road> = vec![];
-    for r in inroads {
-        out.push(r.clone());
-    }
-    let mut points: Vec<Vector2> = vec![start];
-    let mut velocity = in_velocity;
-    let mut most_recent = start;
-    let mut arc_length = 0.0;
-    let mut split_count = 0;
-    loop {
-        let length = unsafe { raylib::ffi::GetRandomValue(32, 64) } as f64;
-        let point = most_recent + velocity * length;
-        most_recent = point;
-        velocity = figure_out_direction(out.as_slice(), velocity, most_recent);
-        points.push(point);
-        arc_length += length;
-        if arc_length > 1000.0 || distance(&center, &most_recent) > radius {
-            break;
-        }
-        if arc_length > 800. {
-            let d = distance(&center, &most_recent) / radius;
-            if d < unsafe { GetRandomValue(0, 100) as f64 / 100. } {
-                break;
-            }
-        }
-        if depth < 4 {
-            if arc_length / split_count as f64 > 150.0 {
-                if unsafe { GetRandomValue(0, depth as i32 * 5 + 1) } < 1 {
-                    let mut tmp = generate_roads_internal(
-                        most_recent,
-                        radius,
-                        context,
-                        rotate_vec2(
-                            &velocity,
-                            3.141592 / 2.0
-                                * unsafe { raylib::ffi::GetRandomValue(0, 2) * 2 - 1 } as f64,
-                        ),
-                        depth + 1,
-                        out.as_slice(),
-                    );
-                    split_count += 1;
-                    out.append(&mut tmp);
-                }
-            }
-        }
-    }
-    let tmp = Road { points: points };
-    out.push(tmp);
-    return out;
-}
-
-#[allow(unused)]
 fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> Road {
     let mut points: Vec<Vector2> = vec![];
     let circumference = 2.0 * PI * radius;
@@ -278,37 +182,49 @@ fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
     return out;
 }
 #[allow(unused)]
-pub fn generate_roads_by_ring_system(max_radius: f64, context: &Context) -> Vec<Road> {
+pub struct Ring{
+    pub inner:Road,
+    pub outer:Road,
+    pub spines:Vec<Road>
+}
+#[allow(unused)]
+pub fn generate_ring_system(max_radius:f64, context:&Context)->Vec<Ring>{
     let mut out = vec![];
+    let mut rings = vec![];
     let mut spines = vec![];
     let dradius = 75.0;
     let count = (max_radius / dradius) as i32;
     let disp = 20 as f64;
     let resolution = 50.0;
     let base = generate_ring(dradius / 2 as f64, disp, resolution, context);
-    out.push(base);
+    rings.push(base);
     for i in 1..count {
         let radius = i as f64 * dradius;
         let tmp = generate_ring(radius, disp, resolution, context);
-        let mut new_spines = link_roads(&tmp, &out[out.len() - 1]);
-        spines.append(&mut new_spines);
+        let new_spines = link_roads(&tmp, &rings[rings.len() - 1]);
+        rings.push(tmp);
+        spines.push(new_spines);
+    }
+    for i in 1..rings.len(){
+        let tmp = Ring{inner:rings[i-1].clone(), outer:rings[i].clone(), spines:spines[i-1].clone()};
         out.push(tmp);
     }
-    out.append(&mut spines);
     return out;
 }
 #[allow(unused)]
-pub fn generate_roads(radius: f64, context: &Context) -> Vec<Road> {
-    let center = vec2((context.width / 2) as f64, (context.height / 2) as f64);
-    let start = {
-        let theta = unsafe { (raylib::ffi::GetRandomValue(0, 628) as f64) / 100.0 };
-        let x = radius * theta.cos();
-        let y = radius * theta.sin();
-        vec2(x, y) + center
-    };
-    let velocity = normalize(&(center - start));
-    let mut locs = vec![];
-    let out = generate_roads_internal(start, radius, context, velocity, 0, &mut locs);
-    println!("finished generation");
+pub fn collect_rings_to_roads(rings:&Vec<Ring>)->Vec<Road>{
+    let mut out = vec![rings[0].inner.clone(), rings[0].outer.clone()];
+    out.append(&mut rings[0].spines.clone());
+    for i in 1..rings.len(){
+        out.push(rings[i].outer.clone());
+        out.append(&mut rings[i].spines.clone());
+    }
     return out;
+}
+fn segment_available_locations(inner:&Road,outer:&Road, lower_side:&Road, upper_side:&Road ){
+    
+}
+#[allow(unused)]
+fn ring_available_locations(ring:&Ring)->Vec<Rectangle>{
+    
 }

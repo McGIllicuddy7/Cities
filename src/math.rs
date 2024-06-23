@@ -78,3 +78,10 @@ pub fn gradient_clamped(v:&[Vector2], point:Vector2, max_radius:f64)->Vector2{
     }
     return out;
 }
+pub struct Rectangle{
+    pub v0:Vector2,
+    pub v1:Vector2,
+    pub v2:Vector2, 
+    pub v3:Vector2,
+}
+
