@@ -50,7 +50,7 @@ impl Road {
         }
     }
     #[allow(unused)]
-    pub fn point_index(&self, point:Vector2)->Option<usize>{
+    pub fn point_index(&self, point: Vector2) -> Option<usize> {
         return None;
     }
 }
@@ -182,13 +182,13 @@ fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
     return out;
 }
 #[allow(unused)]
-pub struct Ring{
-    pub inner:Road,
-    pub outer:Road,
-    pub spines:Vec<Road>
+pub struct Ring {
+    pub inner: Road,
+    pub outer: Road,
+    pub spines: Vec<Road>,
 }
 #[allow(unused)]
-pub fn generate_ring_system(max_radius:f64, context:&Context)->Vec<Ring>{
+pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut out = vec![];
     let mut rings = vec![];
     let mut spines = vec![];
@@ -205,26 +205,28 @@ pub fn generate_ring_system(max_radius:f64, context:&Context)->Vec<Ring>{
         rings.push(tmp);
         spines.push(new_spines);
     }
-    for i in 1..rings.len(){
-        let tmp = Ring{inner:rings[i-1].clone(), outer:rings[i].clone(), spines:spines[i-1].clone()};
+    for i in 1..rings.len() {
+        let tmp = Ring {
+            inner: rings[i - 1].clone(),
+            outer: rings[i].clone(),
+            spines: spines[i - 1].clone(),
+        };
         out.push(tmp);
     }
     return out;
 }
 #[allow(unused)]
-pub fn collect_rings_to_roads(rings:&Vec<Ring>)->Vec<Road>{
+pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     let mut out = vec![rings[0].inner.clone(), rings[0].outer.clone()];
     out.append(&mut rings[0].spines.clone());
-    for i in 1..rings.len(){
+    for i in 1..rings.len() {
         out.push(rings[i].outer.clone());
         out.append(&mut rings[i].spines.clone());
     }
     return out;
 }
-fn segment_available_locations(inner:&Road,outer:&Road, lower_side:&Road, upper_side:&Road ){
-    
-}
+fn segment_available_locations(inner: &Road, outer: &Road, lower_side: &Road, upper_side: &Road) {}
 #[allow(unused)]
-fn ring_available_locations(ring:&Ring)->Vec<Rectangle>{
-    
+fn ring_available_locations(ring: &Ring) -> Vec<Rectangle> {
+    todo!();
 }
