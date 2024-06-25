@@ -1,3 +1,5 @@
+
+
 use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
@@ -7,6 +9,7 @@ use std::f64::consts::PI;
 use std::f64::consts::TAU;
 #[allow(unused)]
 use std::ffi::c_void;
+
 #[allow(unused)]
 #[derive(Clone)]
 pub struct Road {
@@ -51,7 +54,28 @@ impl Road {
     }
     #[allow(unused)]
     pub fn point_index(&self, point: Vector2) -> Option<usize> {
+        for i in 0..self.points.len(){
+            if distance(&self.points[i],&point) <1.1{
+                return Some(i);
+            }
+        }
         return None;
+    }
+    #[allow(unused)]
+    pub fn get_start(&self)->Vector2{
+        return self.points[0];
+    }
+    #[allow(unused)]
+    pub fn get_end(&self)->Vector2{
+        return self.points[self.points.len()-1];
+    }
+    #[allow(unused)]
+    pub fn after_start(&self)->Vector2{
+        return self.points[1];
+    }
+    #[allow(unused)]
+    pub fn after_end(&self)->Vector2{
+        return self.points[self.points.len()-2];
     }
 }
 
@@ -153,7 +177,8 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
 
 #[allow(unused)]
 fn link_points_with_road(v0: Vector2, v1: Vector2) -> Road {
-    let points = vec![v0, v1];
+    let mid  = (v0+v1)/2 as f64;
+    let points = vec![v1,mid, v0];
     return Road { points: points };
 }
 
@@ -225,8 +250,75 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     }
     return out;
 }
-fn segment_available_locations(inner: &Road, outer: &Road, lower_side: &Road, upper_side: &Road) {}
 #[allow(unused)]
-fn ring_available_locations(ring: &Ring) -> Vec<Rectangle> {
-    todo!();
+fn segment_available_locations(inner: &Road, outer: &Road, lower_side: &Road, upper_side: &Road)->Vec<Rectangle> {
+    let mut inners = {
+        let mut tmp = vec![];
+        let start = inner.point_index(lower_side.get_start()).unwrap();
+        let end = inner.point_index(upper_side.get_start()).unwrap();
+
+        let dvec = {
+            if distance(&lower_side.get_start(), &lower_side.after_start()) <distance(&upper_side.get_start(), &upper_side.after_start()){
+                lower_side.after_start()-lower_side.get_start()
+            } else{
+                upper_side.after_start()-upper_side.get_start()
+            }
+        };
+        for i in start..end{
+            let p0 = inner.points[i];
+            let p1 = inner.points[(i+1)%inner.points.len()];
+            let p2 = p0+dvec;
+            let p3 = p1+dvec;
+            let rec = Rectangle{v0:p0, v1:p1, v2:p2, v3:p3};
+            tmp.push(rec);
+        }
+        tmp
+    };
+    let mut outers = {
+        let mut tmp = vec![];
+        let start = outer.point_index(lower_side.get_end()).unwrap();
+        let end = outer.point_index(upper_side.get_end()).unwrap();
+        let dvec = {
+            if distance(&lower_side.get_end(), &lower_side.after_end()) <distance(&upper_side.get_end(), &upper_side.after_end()){
+                lower_side.get_end()-lower_side.after_end()
+            } else{
+                upper_side.get_end()-upper_side.after_end()
+            }
+        };
+        for i in start..end{
+            let p0 = outer.points[i];
+            let p1 =  outer.points[(i+1)%outer.points.len()];
+            let p2 = p0+dvec;
+            let p3 = p1+dvec;
+            let rec = Rectangle{v0:p0, v1:p1, v2:p2, v3:p3};
+            tmp.push(rec);
+        }
+        tmp
+    };
+    let mut lowers = {
+        let tmp = vec![];
+        tmp
+    };
+    let mut uppers = {
+        let tmp = vec![];
+        tmp
+    };
+    let mut out = vec![];
+    out.append(&mut inners);
+    out.append(&mut outers);
+    out.append(&mut lowers);
+    out.append(&mut uppers);
+    return out;
+}
+#[allow(unused)]
+pub fn ring_available_locations(ring: &Ring) -> Vec<Rectangle> {
+    let mut out = vec![];
+    let inner = &ring.inner;
+    let outer = &ring.outer;
+    let len = ring.spines.len();
+    for i in 0..len{
+        let mut tmp = segment_available_locations(inner, outer, &ring.spines[(i+1)%len], &ring.spines[i]);
+        out.append(&mut tmp);
+    }
+    return out;
 }

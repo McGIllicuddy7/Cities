@@ -1,17 +1,18 @@
 mod math;
 mod road;
 mod context;
-use crate::math::*;
+mod city;
+mod building;
 pub fn main(){
     unsafe{
         raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
         let context = crate::context::Context::new(1000,1000);
-        let r = road::generate_road(vec2(50 as f64, 50 as f64), &context);
+        let c = city::City::new(500 as f64, &context);
         raylib::ffi::InitWindow(1000, 1000, "Hello Sailor\0".as_ptr() as * const i8);
         let tex = raylib::ffi::LoadRenderTexture(1000, 1000);
         raylib::ffi::BeginTextureMode(tex.clone());
         raylib::ffi::ClearBackground(raylib::color::Color::WHITE.into());
-        r.draw(&context); 
+        c.draw(&context); 
         raylib::ffi::EndTextureMode();
         while !raylib::ffi::WindowShouldClose(){
             raylib::ffi::BeginDrawing();
@@ -21,4 +22,4 @@ pub fn main(){
         }
     }
 }
-1
+
