@@ -1,26 +1,29 @@
+mod building;
+mod city;
+mod context;
 mod math;
 mod road;
-mod context;
-mod city;
-mod building;
-mod names;
-pub fn main(){
-    unsafe{
+pub fn main() {
+    unsafe {
         raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
-        let context = crate::context::Context::new(1000,1000);
+        let context = crate::context::Context::new(1000, 1000);
         let c = city::City::new(500 as f64, &context);
-        raylib::ffi::InitWindow(1000, 1000, "Hello Sailor\0".as_ptr() as * const i8);
+        raylib::ffi::InitWindow(1000, 1000, "Hello Sailor\0".as_ptr() as *const i8);
         let tex = raylib::ffi::LoadRenderTexture(1000, 1000);
         raylib::ffi::BeginTextureMode(tex.clone());
         raylib::ffi::ClearBackground(raylib::color::Color::WHITE.into());
-        c.draw(&context); 
+        c.draw(&context);
         raylib::ffi::EndTextureMode();
-        while !raylib::ffi::WindowShouldClose(){
+        while !raylib::ffi::WindowShouldClose() {
             raylib::ffi::BeginDrawing();
             raylib::ffi::ClearBackground(raylib::color::Color::WHITE.into());
-            raylib::ffi::DrawTexture(tex.clone().texture, 0, 0, raylib::color::Color::WHITE.into());
+            raylib::ffi::DrawTexture(
+                tex.clone().texture,
+                0,
+                0,
+                raylib::color::Color::WHITE.into(),
+            );
             raylib::ffi::EndDrawing();
         }
     }
 }
-

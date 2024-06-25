@@ -1,5 +1,5 @@
-
-
+use crate::building::generate_building_from_rectangle;
+use crate::building::Block;
 use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
@@ -54,28 +54,28 @@ impl Road {
     }
     #[allow(unused)]
     pub fn point_index(&self, point: Vector2) -> Option<usize> {
-        for i in 0..self.points.len(){
-            if distance(&self.points[i],&point) <1.1{
+        for i in 0..self.points.len() {
+            if distance(&self.points[i], &point) < 1.1 {
                 return Some(i);
             }
         }
         return None;
     }
     #[allow(unused)]
-    pub fn get_start(&self)->Vector2{
+    pub fn get_start(&self) -> Vector2 {
         return self.points[0];
     }
     #[allow(unused)]
-    pub fn get_end(&self)->Vector2{
-        return self.points[self.points.len()-1];
+    pub fn get_end(&self) -> Vector2 {
+        return self.points[self.points.len() - 1];
     }
     #[allow(unused)]
-    pub fn after_start(&self)->Vector2{
+    pub fn after_start(&self) -> Vector2 {
         return self.points[1];
     }
     #[allow(unused)]
-    pub fn after_end(&self)->Vector2{
-        return self.points[self.points.len()-2];
+    pub fn after_end(&self) -> Vector2 {
+        return self.points[self.points.len() - 2];
     }
 }
 
@@ -157,7 +157,7 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
     let min_r = radius - disp;
     let max_r = radius + disp;
     let theta_disp = TAU / count;
-    let theta_offset = (PI / count * 500.0) as i32;
+    let theta_offset = (PI / count * 100.0) as i32;
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
@@ -177,8 +177,8 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
 
 #[allow(unused)]
 fn link_points_with_road(v0: Vector2, v1: Vector2) -> Road {
-    let mid  = (v0+v1)/2 as f64;
-    let points = vec![v1,mid, v0];
+    let mid = (v0 + v1) / 2 as f64;
+    let points = vec![v1, mid, v0];
     return Road { points: points };
 }
 
@@ -219,8 +219,8 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut spines = vec![];
     let dradius = 50.0;
     let count = (max_radius / dradius) as i32;
-    let disp = 20 as f64;
-    let resolution =50.0;
+    let disp = 10 as f64;
+    let resolution = 50.0;
     let base = generate_ring(dradius / 2 as f64, disp, resolution, context);
     rings.push(base);
     for i in 1..count {
@@ -251,43 +251,64 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     return out;
 }
 #[allow(unused)]
-fn segment_available_locations(_inner: &Road, outer: &Road, lower_side: &Road, upper_side: &Road)->Vec<Rectangle> {
+fn segment_available_locations(
+    _inner: &Road,
+    outer: &Road,
+    lower_side: &Road,
+    upper_side: &Road,
+) -> Vec<Rectangle> {
     let two = 2 as f64;
-    let base = Rectangle{v0: lower_side.get_start(), v1:upper_side.get_start(), v2:lower_side.get_end(), v3:upper_side.get_end()}.scale(0.9);
+    let base = Rectangle {
+        v0: lower_side.get_start(),
+        v1: upper_side.get_start(),
+        v2: lower_side.get_end(),
+        v3: upper_side.get_end(),
+    }
+    .scale(0.9);
     let v0 = base.v0;
     let v1 = base.v1;
-    let v2 =base.v2;
-    let v3 =  base.v3;
-    let bmid = (v0+v1)/two;
-    let tmid ={
-        let idx = (outer.point_index(upper_side.get_end()).unwrap()+1)%outer.points.len(); 
+    let v2 = base.v2;
+    let v3 = base.v3;
+    let bmid = (v0 + v1) / two;
+    let tmid = {
+        let idx = (outer.point_index(upper_side.get_end()).unwrap() + 1) % outer.points.len();
         let idx2 = outer.point_index(lower_side.get_end()).unwrap();
-        if idx2 != idx{
+        if idx2 != idx {
             outer.points[idx]
-        } else{
-            (v2+v3)/two
+        } else {
+            (v2 + v3) / two
         }
-    }; 
-    let lmid =(v0+v2)/two;
-    let rmid = (v1+v3)/two;
-    let center = (v0+v1+v2+v3)/(4 as f64);
+    };
+    let lmid = (v0 + v2) / two;
+    let rmid = (v1 + v3) / two;
+    let center = (v0 + v1 + v2 + v3) / (4 as f64);
     let scaler = 0.94;
     vec![
         rect(v0, bmid, lmid, center).scale(scaler),
         rect(bmid, v1, center, rmid).scale(scaler),
-        rect(lmid, v2, center,tmid).scale(scaler),
-        rect(center, tmid, rmid, v3).scale(scaler)
+        rect(lmid, v2, center, tmid).scale(scaler),
+        rect(center, tmid, rmid, v3).scale(scaler),
     ]
 }
 #[allow(unused)]
-pub fn ring_available_locations(ring: &Ring) -> Vec<Rectangle> {
+pub fn ring_available_locations(ring: &Ring) -> Vec<Block> {
     let mut out = vec![];
     let inner = &ring.inner;
     let outer = &ring.outer;
     let len = ring.spines.len();
-    for i in 0..len{
-        let mut tmp = segment_available_locations(inner, outer, &ring.spines[(i+1)%len], &ring.spines[i]);
-        out.append(&mut tmp);
+    for i in 0..len {
+        let tmp = Block {
+            buildings: segment_available_locations(
+                inner,
+                outer,
+                &ring.spines[(i + 1) % len],
+                &ring.spines[i],
+            )
+            .into_iter()
+            .map(|x| generate_building_from_rectangle(x))
+            .collect(),
+        };
+        out.push(tmp);
     }
     return out;
 }
