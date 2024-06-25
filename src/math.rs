@@ -87,3 +87,18 @@ pub struct Rectangle{
 pub fn rect(v0:Vector2, v1:Vector2, v2:Vector2, v3:Vector2)->Rectangle{
     return Rectangle{v0, v1, v2, v3};
 }
+impl Rectangle{
+    #[allow(unused)]
+    pub fn scale(&self, scale:f64)->Rectangle{
+        let center = (self.v0+self.v1+self.v2+self.v3)/ 4 as f64;
+        let dv0 = self.v0-center;
+        let dv1 = self.v1-center;
+        let dv2 = self.v2-center;
+        let dv3 = self.v3-center;
+        return Self{v0:center+dv0*scale, v1:center+dv1*scale, v2:center+dv2*scale, v3:center+dv3*scale};
+    }
+    #[allow(unused)]
+    pub fn scale_mut(&mut self, scale:f64){
+        *self = self.scale(scale);
+    }
+}

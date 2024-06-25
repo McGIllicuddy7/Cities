@@ -3,6 +3,7 @@ mod road;
 mod context;
 mod city;
 mod building;
+mod names;
 pub fn main(){
     unsafe{
         raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);

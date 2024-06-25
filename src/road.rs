@@ -217,10 +217,10 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut out = vec![];
     let mut rings = vec![];
     let mut spines = vec![];
-    let dradius = 75.0;
+    let dradius = 50.0;
     let count = (max_radius / dradius) as i32;
     let disp = 20 as f64;
-    let resolution = 50.0;
+    let resolution =50.0;
     let base = generate_ring(dradius / 2 as f64, disp, resolution, context);
     rings.push(base);
     for i in 1..count {
@@ -251,22 +251,32 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     return out;
 }
 #[allow(unused)]
-fn segment_available_locations(_inner: &Road, _outer: &Road, lower_side: &Road, upper_side: &Road)->Vec<Rectangle> {
+fn segment_available_locations(_inner: &Road, outer: &Road, lower_side: &Road, upper_side: &Road)->Vec<Rectangle> {
     let two = 2 as f64;
-    let v0 = lower_side.get_start();
-    let v1 = upper_side.get_start();
-    let v2 =lower_side.get_end();
-    let v3 =  upper_side.get_end();
+    let base = Rectangle{v0: lower_side.get_start(), v1:upper_side.get_start(), v2:lower_side.get_end(), v3:upper_side.get_end()}.scale(0.9);
+    let v0 = base.v0;
+    let v1 = base.v1;
+    let v2 =base.v2;
+    let v3 =  base.v3;
     let bmid = (v0+v1)/two;
-    let tmid = (v2+v3)/two;
+    let tmid ={
+        let idx = (outer.point_index(upper_side.get_end()).unwrap()+1)%outer.points.len(); 
+        let idx2 = outer.point_index(lower_side.get_end()).unwrap();
+        if idx2 != idx{
+            outer.points[idx]
+        } else{
+            (v2+v3)/two
+        }
+    }; 
     let lmid =(v0+v2)/two;
     let rmid = (v1+v3)/two;
     let center = (v0+v1+v2+v3)/(4 as f64);
+    let scaler = 0.94;
     vec![
-        rect(v0, bmid, lmid, center),
-        rect(bmid, v1, center, rmid),
-        rect(lmid, v2, center,tmid),
-        rect(center, tmid, rmid, v3)
+        rect(v0, bmid, lmid, center).scale(scaler),
+        rect(bmid, v1, center, rmid).scale(scaler),
+        rect(lmid, v2, center,tmid).scale(scaler),
+        rect(center, tmid, rmid, v3).scale(scaler)
     ]
 }
 #[allow(unused)]
