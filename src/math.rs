@@ -84,4 +84,6 @@ pub struct Rectangle{
     pub v2:Vector2, 
     pub v3:Vector2,
 }
-
+pub fn rect(v0:Vector2, v1:Vector2, v2:Vector2, v3:Vector2)->Rectangle{
+    return Rectangle{v0, v1, v2, v3};
+}

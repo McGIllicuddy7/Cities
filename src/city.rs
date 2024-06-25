@@ -15,7 +15,7 @@ impl City {
     }
     pub fn draw(&self, context: &Context) {
         for r in &self.roads {
-          //r.draw(context);
+          r.draw(context);
         }
         for b in &self.buildings{
             b.draw(context);

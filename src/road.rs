@@ -251,64 +251,23 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     return out;
 }
 #[allow(unused)]
-fn segment_available_locations(inner: &Road, outer: &Road, lower_side: &Road, upper_side: &Road)->Vec<Rectangle> {
-    let mut inners = {
-        let mut tmp = vec![];
-        let start = inner.point_index(lower_side.get_start()).unwrap();
-        let end = inner.point_index(upper_side.get_start()).unwrap();
-
-        let dvec = {
-            if distance(&lower_side.get_start(), &lower_side.after_start()) <distance(&upper_side.get_start(), &upper_side.after_start()){
-                lower_side.after_start()-lower_side.get_start()
-            } else{
-                upper_side.after_start()-upper_side.get_start()
-            }
-        };
-        for i in start..end{
-            let p0 = inner.points[i];
-            let p1 = inner.points[(i+1)%inner.points.len()];
-            let p2 = p0+dvec;
-            let p3 = p1+dvec;
-            let rec = Rectangle{v0:p0, v1:p1, v2:p2, v3:p3};
-            tmp.push(rec);
-        }
-        tmp
-    };
-    let mut outers = {
-        let mut tmp = vec![];
-        let start = outer.point_index(lower_side.get_end()).unwrap();
-        let end = outer.point_index(upper_side.get_end()).unwrap();
-        let dvec = {
-            if distance(&lower_side.get_end(), &lower_side.after_end()) <distance(&upper_side.get_end(), &upper_side.after_end()){
-                lower_side.get_end()-lower_side.after_end()
-            } else{
-                upper_side.get_end()-upper_side.after_end()
-            }
-        };
-        for i in start..end{
-            let p0 = outer.points[i];
-            let p1 =  outer.points[(i+1)%outer.points.len()];
-            let p2 = p0+dvec;
-            let p3 = p1+dvec;
-            let rec = Rectangle{v0:p0, v1:p1, v2:p2, v3:p3};
-            tmp.push(rec);
-        }
-        tmp
-    };
-    let mut lowers = {
-        let tmp = vec![];
-        tmp
-    };
-    let mut uppers = {
-        let tmp = vec![];
-        tmp
-    };
-    let mut out = vec![];
-    out.append(&mut inners);
-    out.append(&mut outers);
-    out.append(&mut lowers);
-    out.append(&mut uppers);
-    return out;
+fn segment_available_locations(_inner: &Road, _outer: &Road, lower_side: &Road, upper_side: &Road)->Vec<Rectangle> {
+    let two = 2 as f64;
+    let v0 = lower_side.get_start();
+    let v1 = upper_side.get_start();
+    let v2 =lower_side.get_end();
+    let v3 =  upper_side.get_end();
+    let bmid = (v0+v1)/two;
+    let tmid = (v2+v3)/two;
+    let lmid =(v0+v2)/two;
+    let rmid = (v1+v3)/two;
+    let center = (v0+v1+v2+v3)/(4 as f64);
+    vec![
+        rect(v0, bmid, lmid, center),
+        rect(bmid, v1, center, rmid),
+        rect(lmid, v2, center,tmid),
+        rect(center, tmid, rmid, v3)
+    ]
 }
 #[allow(unused)]
 pub fn ring_available_locations(ring: &Ring) -> Vec<Rectangle> {
