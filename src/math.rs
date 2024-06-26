@@ -9,7 +9,7 @@ pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vec
     let e = end - start;
     let delta = e.normalize();
     let v = dot(&s, &delta) * delta;
-    return v + start;
+    v + start
 }
 #[allow(unused)]
 pub fn is_between_points(point: Vector2, start: Vector2, end: Vector2) -> bool {
@@ -31,13 +31,13 @@ pub fn is_between_points(point: Vector2, start: Vector2, end: Vector2) -> bool {
         let de = dot(&e, &en);
         de < dp
     };
-    return first && second;
+     first && second
 }
 #[allow(unused)]
 pub fn dist_point_to_line(point: Vector2, start: Vector2, end: Vector2) -> f64 {
     let proj = project_vector2_line(point, start, end);
     let btwn = is_between_points(proj, start, end);
-    return if btwn {
+    if btwn {
         distance(&point, &proj)
     } else {
         let d0 = distance(&point, &start);
@@ -47,7 +47,7 @@ pub fn dist_point_to_line(point: Vector2, start: Vector2, end: Vector2) -> f64 {
         } else {
             d1
         }
-    };
+    }
 }
 #[allow(unused)]
 pub fn to_raylib_vec(v: Vector2) -> raylib::ffi::Vector2 {
@@ -64,7 +64,7 @@ pub fn gradient(v:&[Vector2], point:Vector2)->Vector2{
         let grad = delta/length2(&delta);
         out += grad;
     }
-    return out;
+    out
 }
 #[allow(unused)]
 pub fn gradient_clamped(v:&[Vector2], point:Vector2, max_radius:f64)->Vector2{
@@ -76,7 +76,7 @@ pub fn gradient_clamped(v:&[Vector2], point:Vector2, max_radius:f64)->Vector2{
             out += grad;
         }
     }
-    return out;
+    out
 }
 pub struct Rectangle{
     pub v0:Vector2,
@@ -85,20 +85,28 @@ pub struct Rectangle{
     pub v3:Vector2,
 }
 pub fn rect(v0:Vector2, v1:Vector2, v2:Vector2, v3:Vector2)->Rectangle{
-    return Rectangle{v0, v1, v2, v3};
+    Rectangle{v0, v1, v2, v3}
 }
 impl Rectangle{
     #[allow(unused)]
     pub fn scale(&self, scale:f64)->Rectangle{
-        let center = (self.v0+self.v1+self.v2+self.v3)/ 4 as f64;
+        let center = (self.v0+self.v1+self.v2+self.v3)/ 4_f64;
         let dv0 = self.v0-center;
         let dv1 = self.v1-center;
         let dv2 = self.v2-center;
         let dv3 = self.v3-center;
-        return Self{v0:center+dv0*scale, v1:center+dv1*scale, v2:center+dv2*scale, v3:center+dv3*scale};
+        Self{v0:center+dv0*scale, v1:center+dv1*scale, v2:center+dv2*scale, v3:center+dv3*scale}
     }
     #[allow(unused)]
     pub fn scale_mut(&mut self, scale:f64){
         *self = self.scale(scale);
+    }
+    #[allow(unused)]
+    pub fn from(v:[Vector2;4])->Self{
+         Self { v0: v[0], v1: v[1],v2:v[2] ,v3:v[3] }
+    }
+    #[allow(unused)]
+    pub fn into(&self)->[Vector2;4]{
+        [self.v0,self.v1,self.v2,self.v3]
     }
 }

@@ -23,7 +23,7 @@ impl Road {
         for p in points {
             v.push(*p);
         }
-        return Road { points: v };
+         Road { points: v }
     }
     #[allow(unused)]
     pub fn distance_to(&self, point: Vector2) -> f64 {
@@ -34,7 +34,7 @@ impl Road {
                 min = dist;
             }
         }
-        return min;
+         min
     }
 
     #[allow(unused)]
@@ -46,7 +46,7 @@ impl Road {
                 raylib::ffi::DrawLineEx(
                     to_raylib_vec(s),
                     to_raylib_vec(e),
-                    8 as f32,
+                    8_f32,
                     raylib::color::Color::BLACK.into(),
                 )
             }
@@ -59,23 +59,23 @@ impl Road {
                 return Some(i);
             }
         }
-        return None;
+        None
     }
     #[allow(unused)]
     pub fn get_start(&self) -> Vector2 {
-        return self.points[0];
+        self.points[0]
     }
     #[allow(unused)]
     pub fn get_end(&self) -> Vector2 {
-        return self.points[self.points.len() - 1];
+        self.points[self.points.len() - 1]
     }
     #[allow(unused)]
     pub fn after_start(&self) -> Vector2 {
-        return self.points[1];
+        self.points[1]
     }
     #[allow(unused)]
     pub fn after_end(&self) -> Vector2 {
-        return self.points[self.points.len() - 2];
+         self.points[self.points.len() - 2]
     }
 }
 
@@ -98,7 +98,7 @@ fn single_road_gradient(road: &Road, location: Vector2) -> Vector2 {
         let gradient_y_1 = base - road.distance_to(test_location1);
         vec2(0.0, (gradient_y_0 - gradient_y_1) / mu)
     };
-    return partial_x + partial_y;
+    partial_x + partial_y
 }
 
 #[allow(unused)]
@@ -124,7 +124,7 @@ fn single_road_gradient_clamped(road: &Road, location: Vector2, radius: f64) -> 
         let gradient_y_1 = base - road.distance_to(test_location1);
         vec2(0.0, (gradient_y_0 - gradient_y_1) / mu)
     };
-    return partial_x + partial_y;
+    partial_x + partial_y
 }
 
 #[allow(unused)]
@@ -133,20 +133,20 @@ pub fn road_gradient(roads: &[Road], location: Vector2) -> Vector2 {
     for r in roads {
         out += single_road_gradient(r, location);
     }
-    return 1.0 * out;
+     1.0 * out
 }
 
 #[allow(unused)]
 pub fn road_gradient_clamped(roads: &[Road], location: Vector2, radius: f64) -> Vector2 {
     let mut out = vec2(0.0, 0.0);
-    if roads.len() == 0 {
+    if roads.is_empty(){
         return vec2(0.0, 0.0);
     }
     for i in 0..roads.len() - 1 {
         let r = &roads[i];
         out += single_road_gradient_clamped(r, location, radius);
     }
-    return 1.0 * out;
+    1.0 * out
 }
 
 #[allow(unused)]
@@ -172,14 +172,14 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
         points.push(p);
     }
     points.push(points[0]);
-    return Road { points: points };
+    Road {points }
 }
 
 #[allow(unused)]
 fn link_points_with_road(v0: Vector2, v1: Vector2) -> Road {
-    let mid = (v0 + v1) / 2 as f64;
+    let mid = (v0 + v1) / 2_f64;
     let points = vec![v1, mid, v0];
-    return Road { points: points };
+    return Road {points };
 }
 
 #[allow(unused)]
@@ -201,10 +201,10 @@ fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
     let ratio = a.points.len() as f64 / b.points.len() as f64;
     let mut out: Vec<Road> = vec![];
     for i in 0..b.points.len() {
-        let idx = (i as f64 * ratio).floor() as usize;
+        let idx = (i as f64 * ratio).round() as usize % a.points.len();
         out.push(link_points_with_road(a.points[idx], b.points[i]));
     }
-    return out;
+     out
 }
 #[allow(unused)]
 pub struct Ring {
@@ -221,7 +221,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let count = (max_radius / dradius) as i32;
     let disp = 10 as f64;
     let resolution = 50.0;
-    let base = generate_ring(dradius / 2 as f64, disp, resolution, context);
+    let base = generate_ring(dradius / 2_f64, disp, resolution, context);
     rings.push(base);
     for i in 1..count {
         let radius = i as f64 * dradius;
@@ -238,7 +238,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
         };
         out.push(tmp);
     }
-    return out;
+    out
 }
 #[allow(unused)]
 pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
@@ -248,7 +248,7 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
         out.push(rings[i].outer.clone());
         out.append(&mut rings[i].spines.clone());
     }
-    return out;
+    out
 }
 #[allow(unused)]
 fn segment_available_locations(
@@ -281,8 +281,8 @@ fn segment_available_locations(
     };
     let lmid = (v0 + v2) / two;
     let rmid = (v1 + v3) / two;
-    let center = (v0 + v1 + v2 + v3) / (4 as f64);
-    let scaler = 0.94;
+    let center = (v0 + v1 + v2 + v3) / (4_f64);
+    let scaler = 0.90;
     vec![
         rect(v0, bmid, lmid, center).scale(scaler),
         rect(bmid, v1, center, rmid).scale(scaler),
@@ -310,5 +310,5 @@ pub fn ring_available_locations(ring: &Ring) -> Vec<Block> {
         };
         out.push(tmp);
     }
-    return out;
+    out
 }

@@ -21,15 +21,15 @@ impl City {
             }
             tmp
         };
-        return Self {
-            roads: roads,
-            buildings: buildings,
+        Self {
+            roads,
+            buildings,
         }
-        .scale(context, 0.75);
+        .scale(context, 2.0)
     }
     pub fn draw(&self, context: &Context) {
-        for _r in &self.roads {
-            //r.draw(context);
+        for r in &self.roads {
+            r.draw(context);
         }
         for b in &self.buildings {
             b.draw(context);
@@ -41,8 +41,8 @@ impl City {
             buildings: vec![],
         };
         let center = vec2(
-            context.width as f64 / 2 as f64,
-            context.height as f64 / 2 as f64,
+            context.width as f64 / 2_f64,
+            context.height as f64 / 2_f64,
         );
         for r in &self.roads {
             let mut tmp = road::Road { points: vec![] };
@@ -66,6 +66,6 @@ impl City {
             };
             out.buildings.push(nw);
         }
-        return out;
+        out
     }
 }
