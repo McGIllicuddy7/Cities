@@ -29,17 +29,27 @@ impl Building {
         (self.p0+self.p1+self.p2+self.p3)/4_f64
     }
     #[allow(unused)]
-    pub fn iter_points<T>(&self, task:fn(Vector2)->T)->[T;4]{
-        let  out:[T;4] = [task(self.p0),task(self.p1),task(self.p2),task(self.p3)];
-        out
-    }
-    #[allow(unused)]
     pub fn from(v:[Vector2;4])->Self{
         Self { p0: v[0], p1: v[1],p2:v[2] ,p3:v[3] }
     }
     #[allow(unused)]
     pub fn into(&self)->[Vector2;4]{
         [self.p0,self.p1,self.p2,self.p3] 
+    }
+    #[allow(unused)]
+    fn is_degenerate(&self)->bool{
+        let p = self.into();
+        for i in 0..p.len(){
+            for j in 0..p.len(){
+                if i == j{
+                    continue;
+                }
+                if distance(&p[i], &p[j])< 1_f64{
+                    return true;
+                }
+            }
+        }
+        false
     }
 }
 #[allow(unused)]
@@ -96,7 +106,17 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
 pub fn filter_buildings(buildings:&[Building], context:&Context)->Vec<Building>{
     let mut out = vec![];
     for b in buildings{
-        
+        out.push(b.clone());
+    }
+    out
+}
+#[allow(unused)]
+pub fn purge_degenerates(buildings:&[Building])->Vec<Building>{
+    let mut out = vec![];
+    for b in buildings{
+        if !b.is_degenerate(){
+            out.push(b.clone());
+        }
     }
     out
 }

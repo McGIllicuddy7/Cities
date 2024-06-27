@@ -163,7 +163,7 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
         let d_theta =
-            unsafe { raylib::ffi::GetRandomValue(-theta_offset, theta_offset) } as f64 / 1000.0;
+            unsafe { raylib::ffi::GetRandomValue(-614, 614) } as f64 / 5000.0/(radius.log2()/7.0);
         let theta = theta_0 + d_theta;
         let rad = unsafe { raylib::ffi::GetRandomValue(min_r as i32 * 1000, max_r as i32 * 1000) }
             as f64
@@ -219,7 +219,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut spines = vec![];
     let dradius = 50.0;
     let count = (max_radius / dradius) as i32;
-    let disp = 10 as f64;
+    let disp = 15.0;
     let resolution = 50.0;
     let base = generate_ring(dradius / 2_f64, disp, resolution, context);
     rings.push(base);
@@ -264,7 +264,7 @@ fn segment_available_locations(
         v2: lower_side.get_end(),
         v3: upper_side.get_end(),
     }
-    .scale(0.9);
+    .scale(0.85);
     let v0 = base.v0;
     let v1 = base.v1;
     let v2 = base.v2;

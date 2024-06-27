@@ -1,3 +1,4 @@
+use crate::building::{filter_buildings, purge_degenerates};
 use crate::context::Context;
 use crate::math::*;
 use crate::{building, road};
@@ -8,7 +9,9 @@ pub struct City {
 }
 
 impl City {
-    pub fn new(radius: f64, context: &Context) -> Self {
+    pub fn new(scaler:f64,context:&Context) -> Self {
+        let radius = 500.0*scaler;
+        let scale = 1.0/scaler;
         let rings = road::generate_ring_system(radius, context);
         let roads = road::collect_rings_to_roads(&rings);
         let blocks = building::generate_blocks(rings.as_slice());
@@ -21,15 +24,17 @@ impl City {
             }
             tmp
         };
+        let buildings = filter_buildings(buildings.as_slice(), context);
+        let buildings = purge_degenerates(buildings.as_slice());
         Self {
             roads,
             buildings,
         }
-        .scale(context, 2.0)
+        .scale(context, scale)
     }
     pub fn draw(&self, context: &Context) {
-        for r in &self.roads {
-            r.draw(context);
+        for _r in &self.roads {
+            //r.draw(context);
         }
         for b in &self.buildings {
             b.draw(context);
