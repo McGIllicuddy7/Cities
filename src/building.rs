@@ -61,15 +61,15 @@ pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
         p3: rect.v3,
     }
 }
-pub fn generate_blocks(rings: &[road::Ring]) -> Vec<Block> {
+pub fn generate_blocks(rings: &[road::Ring], context:&Context) -> Vec<Block> {
     let mut out = vec![];
     for r in rings {
-        let tmp = road::ring_available_locations(r);
+        let tmp = road::ring_available_locations(r, context);
         for t in tmp {
             out.push(t);
         }
     }
-    out 
+    out
 }
 
 #[allow(unused)]
@@ -88,14 +88,18 @@ impl Block{
     pub fn distance_to_center(&self, context: &Context)->f64{
         distance(&self.center_mass(), &context.center())
     }
+    #[allow(unused)]
+    pub fn is_degenerate(&self)->bool{
+        false
+    }
 }
 #[allow(unused)]
 pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
     let mut out = vec![];
     for b in blocks{
         let d = b.distance_to_center(context);
-        let r = unsafe{raylib::ffi::GetRandomValue(50, 1000)} as f64;
-        if r>d{
+        let r = unsafe{raylib::ffi::GetRandomValue(15, 50)*raylib::ffi::GetRandomValue(15, 50)} as f64;
+        if d>r{
             continue;
         }
         out.push(b.clone());

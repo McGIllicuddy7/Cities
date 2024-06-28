@@ -46,8 +46,8 @@ impl Road {
                 raylib::ffi::DrawLineEx(
                     to_raylib_vec(s),
                     to_raylib_vec(e),
-                    8_f32,
-                    raylib::color::Color::BLACK.into(),
+                    4_f32,
+                    raylib::color::Color::WHITESMOKE.into(),
                 )
             }
         }
@@ -158,13 +158,14 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
     let max_r = radius + disp;
     let theta_disp = TAU / count;
     let theta_offset = (PI / count * 100.0) as i32;
+    let theta_base = unsafe{raylib::ffi::GetRandomValue(-314, 314) as f64 /10000 as f64};
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
         let d_theta =
-            unsafe { raylib::ffi::GetRandomValue(-614, 614) } as f64 / 5000.0/(radius.log2()/7.0);
-        let theta = theta_0 + d_theta;
+            unsafe { raylib::ffi::GetRandomValue(-614, 614) } as f64 / 5000.0/(radius.sqrt()/7.0);
+        let theta = theta_0 + d_theta+theta_base;
         let rad = unsafe { raylib::ffi::GetRandomValue(min_r as i32 * 1000, max_r as i32 * 1000) }
             as f64
             / 1000.0;
@@ -219,7 +220,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut spines = vec![];
     let dradius = 50.0;
     let count = (max_radius / dradius) as i32;
-    let disp = 15.0;
+    let disp = 10.0;
     let resolution = 50.0;
     let base = generate_ring(dradius / 2_f64, disp, resolution, context);
     rings.push(base);
@@ -256,6 +257,7 @@ fn segment_available_locations(
     outer: &Road,
     lower_side: &Road,
     upper_side: &Road,
+    context:&Context
 ) -> Vec<Rectangle> {
     let two = 2 as f64;
     let base = Rectangle {
@@ -263,8 +265,10 @@ fn segment_available_locations(
         v1: upper_side.get_start(),
         v2: lower_side.get_end(),
         v3: upper_side.get_end(),
+    }.scale(context.block_scale);
+    if unsafe{raylib::ffi::GetRandomValue(0, 100)<context.whole_block_buildings_percent}{
+        return vec![base];
     }
-    .scale(0.85);
     let v0 = base.v0;
     let v1 = base.v1;
     let v2 = base.v2;
@@ -282,7 +286,7 @@ fn segment_available_locations(
     let lmid = (v0 + v2) / two;
     let rmid = (v1 + v3) / two;
     let center = (v0 + v1 + v2 + v3) / (4_f64);
-    let scaler = 0.90;
+    let scaler = context.building_scale;
     vec![
         rect(v0, bmid, lmid, center).scale(scaler),
         rect(bmid, v1, center, rmid).scale(scaler),
@@ -291,7 +295,7 @@ fn segment_available_locations(
     ]
 }
 #[allow(unused)]
-pub fn ring_available_locations(ring: &Ring) -> Vec<Block> {
+pub fn ring_available_locations(ring: &Ring, context:&Context) -> Vec<Block> {
     let mut out = vec![];
     let inner = &ring.inner;
     let outer = &ring.outer;
@@ -303,9 +307,10 @@ pub fn ring_available_locations(ring: &Ring) -> Vec<Block> {
                 outer,
                 &ring.spines[(i + 1) % len],
                 &ring.spines[i],
+                context
             )
             .into_iter()
-            .map(|x| generate_building_from_rectangle(x))
+            .map(|x| generate_building_from_rectangle(x.scale(0.9)))
             .collect(),
         };
         out.push(tmp);
