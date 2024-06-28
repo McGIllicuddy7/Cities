@@ -1,0 +1,1 @@
+/Users/bridget/Cities/src/libnpc/target/debug/liblibnpc.rlib: /Users/bridget/Cities/src/libnpc/lib.rs /Users/bridget/Cities/src/libnpc/npc/biology.rs /Users/bridget/Cities/src/libnpc/npc/names.rs /Users/bridget/Cities/src/libnpc/npc.rs

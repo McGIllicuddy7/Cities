@@ -1,5 +1,6 @@
 mod names;
 mod biology;
+mod name_gen;
 use biology::*;
 pub struct ContextInfo{
     pub most_common:Species, 
