@@ -9,9 +9,9 @@ pub struct City {
 }
 
 impl City {
-    pub fn new(scaler:f64,context:&Context) -> Self {
-        let radius = 500.0*scaler;
-        let scale = 1.0/scaler;
+    pub fn new(scaler: f64, context: &Context) -> Self {
+        let radius = 500.0 * scaler;
+        let scale = 1.0 / scaler;
         let rings = road::generate_ring_system(radius, context);
         let roads = road::collect_rings_to_roads(&rings);
         let blocks = building::generate_blocks(rings.as_slice(), context);
@@ -27,11 +27,7 @@ impl City {
         };
         let buildings = filter_buildings(buildings.as_slice(), context);
         let buildings = purge_degenerates(buildings.as_slice());
-        Self {
-            roads,
-            buildings,
-        }
-        .scale(context, scale)
+        Self { roads, buildings }.scale(context, scale)
     }
     pub fn draw(&self, context: &Context) {
         for r in &self.roads {
@@ -46,10 +42,7 @@ impl City {
             roads: vec![],
             buildings: vec![],
         };
-        let center = vec2(
-            context.width as f64 / 2_f64,
-            context.height as f64 / 2_f64,
-        );
+        let center = vec2(context.width as f64 / 2_f64, context.height as f64 / 2_f64);
         for r in &self.roads {
             let mut tmp = road::Road { points: vec![] };
             for v in &r.points {
