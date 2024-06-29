@@ -4,8 +4,9 @@ use crate::math::*;
 use crate::{building, road};
 #[allow(unused)]
 pub struct City {
-    roads: Vec<road::Road>,
-    buildings: Vec<building::Building>,
+    pub roads: Vec<road::Road>,
+    pub buildings: Vec<building::Building>,
+    pub water: Vec<road::Road>,
 }
 
 impl City {
@@ -27,9 +28,14 @@ impl City {
         };
         let buildings = filter_buildings(buildings.as_slice(), context);
         let buildings = purge_degenerates(buildings.as_slice());
-        Self { roads, buildings }.scale(context, scale)
+        Self {
+            roads,
+            buildings,
+            water: vec![],
+        }
+        .scale(context, scale)
     }
-    pub fn draw(&self, context: &Context) {
+    pub unsafe fn draw(&self, context: &Context) {
         for r in &self.roads {
             r.draw(context);
         }
@@ -41,6 +47,7 @@ impl City {
         let mut out = Self {
             roads: vec![],
             buildings: vec![],
+            water: vec![],
         };
         let center = vec2(context.width as f64 / 2_f64, context.height as f64 / 2_f64);
         for r in &self.roads {

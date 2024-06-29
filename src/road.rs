@@ -23,7 +23,7 @@ impl Road {
         for p in points {
             v.push(*p);
         }
-         Road { points: v }
+        Road { points: v }
     }
     #[allow(unused)]
     pub fn distance_to(&self, point: Vector2) -> f64 {
@@ -34,22 +34,33 @@ impl Road {
                 min = dist;
             }
         }
-         min
+        min
     }
 
     #[allow(unused)]
-    pub fn draw(&self, context: &crate::context::Context) {
-        unsafe {
-            for i in 0..self.points.len() - 1 {
-                let s = self.points[i];
-                let e = self.points[(i + 1) % self.points.len()];
-                raylib::ffi::DrawLineEx(
-                    to_raylib_vec(s),
-                    to_raylib_vec(e),
-                    4_f32,
-                    raylib::color::Color::WHITESMOKE.into(),
-                )
-            }
+    pub unsafe fn draw(&self, context: &crate::context::Context) {
+        for i in 0..self.points.len() - 1 {
+            let s = self.points[i];
+            let e = self.points[(i + 1) % self.points.len()];
+            raylib::ffi::DrawLineEx(
+                to_raylib_vec(s),
+                to_raylib_vec(e),
+                4_f32,
+                raylib::color::Color::WHITESMOKE.into(),
+            )
+        }
+    }
+    #[allow(unused)]
+    pub unsafe fn draw_as_water(&self, context: &crate::context::Context) {
+        for i in 0..self.points.len() - 1 {
+            let s = self.points[i];
+            let e = self.points[(i + 1) % self.points.len()];
+            raylib::ffi::DrawLineEx(
+                to_raylib_vec(s),
+                to_raylib_vec(e),
+                4_f32,
+                raylib::color::Color::DARKBLUE.into(),
+            )
         }
     }
     #[allow(unused)]
@@ -75,7 +86,7 @@ impl Road {
     }
     #[allow(unused)]
     pub fn after_end(&self) -> Vector2 {
-         self.points[self.points.len() - 2]
+        self.points[self.points.len() - 2]
     }
 }
 
@@ -133,13 +144,13 @@ pub fn road_gradient(roads: &[Road], location: Vector2) -> Vector2 {
     for r in roads {
         out += single_road_gradient(r, location);
     }
-     1.0 * out
+    1.0 * out
 }
 
 #[allow(unused)]
 pub fn road_gradient_clamped(roads: &[Road], location: Vector2, radius: f64) -> Vector2 {
     let mut out = vec2(0.0, 0.0);
-    if roads.is_empty(){
+    if roads.is_empty() {
         return vec2(0.0, 0.0);
     }
     for i in 0..roads.len() - 1 {
@@ -158,29 +169,27 @@ fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> 
     let max_r = radius + disp;
     let theta_disp = TAU / count;
     let theta_offset = (PI / count * 100.0) as i32;
-    let theta_base = unsafe{raylib::ffi::GetRandomValue(-314, 314) as f64 /10000 as f64};
+    let theta_base = context.get_random_value(-314, 314) as f64 / 10000 as f64;
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let d_theta =
-            unsafe { raylib::ffi::GetRandomValue(-614, 614) } as f64 / 5000.0/(radius.sqrt()/7.0);
-        let theta = theta_0 + d_theta+theta_base;
-        let rad = unsafe { raylib::ffi::GetRandomValue(min_r as i32 * 1000, max_r as i32 * 1000) }
-            as f64
-            / 1000.0;
+        let d_theta = context.get_random_value(-628, 628) as f64 / 5000.0 / (radius.sqrt() / 7.0);
+        let theta = theta_0 + d_theta + theta_base;
+        let rad =
+            context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
     }
     points.push(points[0]);
-    Road {points }
+    Road { points }
 }
 
 #[allow(unused)]
 fn link_points_with_road(v0: Vector2, v1: Vector2) -> Road {
     let mid = (v0 + v1) / 2_f64;
     let points = vec![v1, mid, v0];
-    return Road {points };
+    return Road { points };
 }
 
 #[allow(unused)]
@@ -205,7 +214,7 @@ fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         out.push(link_points_with_road(a.points[idx], b.points[i]));
     }
-     out
+    out
 }
 #[allow(unused)]
 pub struct Ring {
@@ -257,7 +266,7 @@ fn segment_available_locations(
     outer: &Road,
     lower_side: &Road,
     upper_side: &Road,
-    context:&Context
+    context: &Context,
 ) -> Vec<Rectangle> {
     let two = 2 as f64;
     let base = Rectangle {
@@ -265,8 +274,9 @@ fn segment_available_locations(
         v1: upper_side.get_start(),
         v2: lower_side.get_end(),
         v3: upper_side.get_end(),
-    }.scale(context.block_scale);
-    if unsafe{raylib::ffi::GetRandomValue(0, 100)<context.whole_block_buildings_percent}{
+    }
+    .scale(context.block_scale);
+    if context.get_random_value(0, 100) < context.whole_block_buildings_percent {
         return vec![base];
     }
     let v0 = base.v0;
@@ -295,7 +305,7 @@ fn segment_available_locations(
     ]
 }
 #[allow(unused)]
-pub fn ring_available_locations(ring: &Ring, context:&Context) -> Vec<Block> {
+pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
     let mut out = vec![];
     let inner = &ring.inner;
     let outer = &ring.outer;
@@ -307,7 +317,7 @@ pub fn ring_available_locations(ring: &Ring, context:&Context) -> Vec<Block> {
                 outer,
                 &ring.spines[(i + 1) % len],
                 &ring.spines[i],
-                context
+                context,
             )
             .into_iter()
             .map(|x| generate_building_from_rectangle(x.scale(0.9)))
