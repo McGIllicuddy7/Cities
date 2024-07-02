@@ -327,3 +327,30 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
     }
     out
 }
+fn noisy_connect_points(p0:Vector2, p1:Vector2, resolution:f64, context: &Context)->Road{
+    let count = distance(&p1,&p0).abs()/resolution;
+    let current = p0;
+    let dvec = (p0-p1)/resolution;
+}
+fn connect_points_through_lines(p0:Vector2, p1:Vector2, roads:&[Road],context: &Context)->Road{
+    todo!();
+}
+#[allow(unused)]
+pub fn generate_road_grid(radius:f64, context:&Context)->(Vec<Road> ,Vec<Road>){
+    let resolution:f64 = 100_f64;
+    let mut vertical:Vec<Road> = vec![];
+    let mut horizontal:Vec<Road> = vec![];
+    let count = (radius*2.0/resolution) as usize;
+
+    for i in 0..count{
+        let p0 = vec2(0.0, i as f64*radius/resolution*2.0);
+        let p1 = vec2(radius*2.0, i as f64*radius/resolution*2.0);
+        horizontal.push(noisy_connect_points(p0, p1, resolution, context));
+    }
+    for i in 0..count{
+        let p0 = vec2(0.0, i as f64*radius/resolution*2.0);
+        let p1 = vec2(radius*2.0, i as f64*radius/resolution*2.0);
+        vertical.push(connect_points_through_lines(p0, p1, &horizontal,context));
+    }
+    return (vertical, horizontal);
+}
