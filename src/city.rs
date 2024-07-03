@@ -44,7 +44,7 @@ impl City {
         let hors: Vec<road::Road> = roads_base.0;
         let verts: Vec<road::Road> = roads_base.1;
         let roads: Vec<road::Road> = vec![hors.clone(), verts.clone()].concat();
-        let blocks = road::generate_blocks_from_road_grid(&verts, &hors);
+        let blocks = road::generate_blocks_from_road_grid(&verts, &hors, context);
         let blocks = building::filter_blocks(&blocks, &context);
         let buildings = {
             let mut tmp = vec![];
@@ -62,7 +62,7 @@ impl City {
             buildings,
             water: vec![],
         }
-        .scale(context, scale * 0.85);
+        .scale(context, scale * 0.95);
     }
 
     pub unsafe fn draw(&self, context: &Context) {

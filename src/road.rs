@@ -354,14 +354,17 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
     out
 }
 
-fn noisy_connect_points(p0: Vector2, p1: Vector2, resolution: f64, _context: &Context) -> Road {
+fn noisy_connect_points(p0: Vector2, p1: Vector2, resolution: f64, context: &Context) -> Road {
     let count = (distance(&p1, &p0).abs() / resolution) as usize;
     let current = p0;
     let dvec = (p1 - p0) / count as f64;
+    let noisex = NoiseGenerator1d::new((count+1) as f64, 4.0, 10, context);
+    let noisey = NoiseGenerator1d::new((count+1) as f64, 4.0, 10, context);
     Road {
         points: (0..count + 1)
-            .map(|i| (current + dvec * i as f64))
-            .collect(),
+            .map(|i| (current + dvec * i as f64+
+                vec2(noisex.get_value(i as f64)*30.0, noisey.get_value(i as f64)*30.0)))
+            .collect()
     }
 }
 
@@ -398,7 +401,7 @@ fn connect_points_through_lines(
 
 #[allow(unused)]
 pub fn generate_road_grid(radius: f64, context: &Context) -> (Vec<Road>, Vec<Road>) {
-    let resolution: f64 = 100_f64;
+    let resolution: f64 = 50_f64;
     let mut vertical: Vec<Road> = vec![];
     let mut horizontal: Vec<Road> = vec![];
     let count = (radius * 2.0 / resolution) as usize;

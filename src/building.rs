@@ -112,6 +112,9 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
 pub fn filter_buildings(buildings: &[Building], context: &Context) -> Vec<Building> {
     let mut out = vec![];
     for b in buildings {
+        if distance(&b.center_mass(), &context.center())>(context.width/2-100) as f64{
+            continue;
+        }
         out.push(b.clone());
     }
     out

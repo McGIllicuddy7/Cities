@@ -1,4 +1,8 @@
+
+
 pub use nalgebra_glm::*;
+
+use crate::context::*;
 pub type Vector2 = TVec2<f64>;
 #[allow(unused)]
 pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vector2 {
@@ -78,6 +82,16 @@ pub fn gradient_clamped(v:&[Vector2], point:Vector2, max_radius:f64)->Vector2{
     }
     out
 }
+#[allow(unused)]
+pub fn int_power<T>(base:T, other:usize)->T
+where T: std::ops::MulAssign+Copy+From<i32>
+{
+    let mut out = T::from(1);
+    for i in 0..other{
+        out *= base;
+    }
+    out
+}
 pub struct Rectangle{
     pub v0:Vector2,
     pub v1:Vector2,
@@ -108,5 +122,47 @@ impl Rectangle{
     #[allow(unused)]
     pub fn into(&self)->[Vector2;4]{
         [self.v0,self.v1,self.v2,self.v3]
+    }
+}
+#[allow(unused)]
+struct NoiseOctave1d{
+    pub points:Vec<f64>,
+    pub point_dist:f64
+}
+#[allow(unused)]
+pub struct NoiseGenerator1d{
+    octaves:Vec<NoiseOctave1d>,
+    norm:f64
+}
+impl NoiseOctave1d{
+    pub fn new(length:f64, point_dist:f64,context:&Context)->Self{
+        let p0 = context.get_random_float();
+        let mut points = vec![];
+        let count = (length/point_dist).floor() as usize;
+        for _ in 1..count{
+            points.push(context.get_random_float());
+        }
+        points.push(p0);
+        Self{points, point_dist}
+    }
+    pub fn get_value(&self,location:f64)->f64{
+        let a = (location/self.point_dist).floor();
+        let b = (location/self.point_dist).ceil();
+        let l_val = location/self.point_dist-a;
+        let a_ind = a as usize % self.points.len();
+        let b_ind = b as usize % self.points.len();
+        self.points[a_ind]*(1.0-l_val)+self.points[b_ind]*l_val
+    }
+}
+impl NoiseGenerator1d{
+    pub fn new(length:f64, point_dist:f64, octaves_count:usize, context:&Context)->Self{
+        let octaves = (0..octaves_count).
+        map(|i| NoiseOctave1d::new(length, point_dist/(int_power(2, i) as f64), context)).
+        collect();
+        let norm = (0..octaves_count).map(|i| int_power(0.5, i)).sum();
+        return Self{octaves, norm};
+    }
+    pub fn get_value(&self,location:f64)->f64{
+        ( 0..self.octaves.len()).map(|i| self.octaves[i].get_value(location)*int_power(0.5, i)/self.norm).sum()
     }
 }
