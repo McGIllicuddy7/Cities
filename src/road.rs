@@ -25,6 +25,7 @@ impl Road {
         }
         Road { points: v }
     }
+
     #[allow(unused)]
     pub fn distance_to(&self, point: Vector2) -> f64 {
         let mut min = distance(&self.points[0], &point);
@@ -50,6 +51,7 @@ impl Road {
             )
         }
     }
+
     #[allow(unused)]
     pub unsafe fn draw_as_water(&self, context: &crate::context::Context) {
         for i in 0..self.points.len() - 1 {
@@ -63,6 +65,7 @@ impl Road {
             )
         }
     }
+
     #[allow(unused)]
     pub fn point_index(&self, point: Vector2) -> Option<usize> {
         for i in 0..self.points.len() {
@@ -72,21 +75,39 @@ impl Road {
         }
         None
     }
+
     #[allow(unused)]
     pub fn get_start(&self) -> Vector2 {
         self.points[0]
     }
+
     #[allow(unused)]
     pub fn get_end(&self) -> Vector2 {
         self.points[self.points.len() - 1]
     }
+
     #[allow(unused)]
     pub fn after_start(&self) -> Vector2 {
         self.points[1]
     }
+
     #[allow(unused)]
     pub fn after_end(&self) -> Vector2 {
         self.points[self.points.len() - 2]
+    }
+
+    #[allow(unused)]
+    pub fn nearest_point_to(&self, location: &Vector2) -> Vector2 {
+        let mut min = self.points[0];
+        let mut min_dist = distance(&min, &location);
+        for i in &self.points {
+            let d = distance(i, &location);
+            if d < min_dist {
+                min_dist = d;
+                min = *i;
+            }
+        }
+        min
     }
 }
 
@@ -216,12 +237,14 @@ fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
     }
     out
 }
+
 #[allow(unused)]
 pub struct Ring {
     pub inner: Road,
     pub outer: Road,
     pub spines: Vec<Road>,
 }
+
 #[allow(unused)]
 pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut out = vec![];
@@ -250,6 +273,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     }
     out
 }
+
 #[allow(unused)]
 pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     let mut out = vec![rings[0].inner.clone(), rings[0].outer.clone()];
@@ -260,6 +284,7 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     }
     out
 }
+
 #[allow(unused)]
 fn segment_available_locations(
     _inner: &Road,
@@ -304,6 +329,7 @@ fn segment_available_locations(
         rect(center, tmid, rmid, v3).scale(scaler),
     ]
 }
+
 #[allow(unused)]
 pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
     let mut out = vec![];
@@ -327,30 +353,112 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
     }
     out
 }
-fn noisy_connect_points(p0:Vector2, p1:Vector2, resolution:f64, context: &Context)->Road{
-    let count = distance(&p1,&p0).abs()/resolution;
-    let current = p0;
-    let dvec = (p0-p1)/resolution;
-}
-fn connect_points_through_lines(p0:Vector2, p1:Vector2, roads:&[Road],context: &Context)->Road{
-    todo!();
-}
-#[allow(unused)]
-pub fn generate_road_grid(radius:f64, context:&Context)->(Vec<Road> ,Vec<Road>){
-    let resolution:f64 = 100_f64;
-    let mut vertical:Vec<Road> = vec![];
-    let mut horizontal:Vec<Road> = vec![];
-    let count = (radius*2.0/resolution) as usize;
 
-    for i in 0..count{
-        let p0 = vec2(0.0, i as f64*radius/resolution*2.0);
-        let p1 = vec2(radius*2.0, i as f64*radius/resolution*2.0);
+fn noisy_connect_points(p0: Vector2, p1: Vector2, resolution: f64, _context: &Context) -> Road {
+    let count = (distance(&p1, &p0).abs() / resolution) as usize;
+    let current = p0;
+    let dvec = (p1 - p0) / count as f64;
+    Road {
+        points: (0..count + 1)
+            .map(|i| (current + dvec * i as f64))
+            .collect(),
+    }
+}
+
+fn connect_points_through_lines(
+    p0: Vector2,
+    p1: Vector2,
+    roads: &[Road],
+    _context: &Context,
+) -> Road {
+    let count = roads.len() + 2;
+    let mut prev = p0;
+    return Road {
+        points: (0..count)
+            .map(|i| {
+                if i == 0 {
+                    p0
+                } else if i == roads.len() + 1 {
+                    p1
+                } else {
+                    if i > 1 {
+                        let t = roads[i - 1].nearest_point_to(&prev);
+                        prev = t;
+                        t
+                    } else {
+                        let t = roads[i - 1].nearest_point_to(&p0);
+                        prev = t;
+                        t
+                    }
+                }
+            })
+            .collect(),
+    };
+}
+
+#[allow(unused)]
+pub fn generate_road_grid(radius: f64, context: &Context) -> (Vec<Road>, Vec<Road>) {
+    let resolution: f64 = 100_f64;
+    let mut vertical: Vec<Road> = vec![];
+    let mut horizontal: Vec<Road> = vec![];
+    let count = (radius * 2.0 / resolution) as usize;
+    for i in 1..count {
+        let p0 = vec2(0.0, i as f64 * radius * 2.0 / count as f64);
+        let p1 = vec2(radius * 2.0, i as f64 * radius * 2.0 / count as f64);
         horizontal.push(noisy_connect_points(p0, p1, resolution, context));
     }
-    for i in 0..count{
-        let p0 = vec2(0.0, i as f64*radius/resolution*2.0);
-        let p1 = vec2(radius*2.0, i as f64*radius/resolution*2.0);
-        vertical.push(connect_points_through_lines(p0, p1, &horizontal,context));
+    for i in 1..count {
+        let p0 = vec2(i as f64 * radius * 2.0 / count as f64, 0.0);
+        let p1 = vec2(i as f64 * radius * 2.0 / count as f64, radius * 2.0);
+        vertical.push(connect_points_through_lines(p0, p1, &horizontal, context));
     }
-    return (vertical, horizontal);
+    (horizontal, vertical)
+}
+#[allow(unused)]
+pub fn generate_blocks_from_road_grid(
+    verticals: &[Road],
+    horizontals: &[Road],
+    context: &Context,
+) -> Vec<Block> {
+    if verticals.len() < 3 || horizontals.len() < 3 {
+        return vec![];
+    }
+    let mut out = vec![];
+    for i in 1..horizontals.len() - 1 {
+        for j in 1..horizontals[i].points.len() - 1 {
+            let base = Rectangle {
+                v0: horizontals[i].points[j],
+                v1: horizontals[i].points[j + 1],
+                v2: horizontals[i + 1].points[j],
+                v3: horizontals[i + 1].points[j + 1],
+            }
+            .scale(context.block_scale);
+            let two = 2 as f64;
+            if context.get_random_value(0, 100) < context.whole_block_buildings_percent {
+                out.push(Block {
+                    buildings: vec![generate_building_from_rectangle(base)],
+                });
+                continue;
+            }
+            let v0 = base.v0;
+            let v1 = base.v1;
+            let v2 = base.v2;
+            let v3 = base.v3;
+            let bmid = (v0 + v1) / two;
+            let tmid = (v2 + v3) / two;
+            let lmid = (v0 + v2) / two;
+            let rmid = (v1 + v3) / two;
+            let center = (v0 + v1 + v2 + v3) / (4_f64);
+            let scaler = context.building_scale;
+            out.push(Block {
+                buildings: vec![
+                    generate_building_from_rectangle(rect(v0, bmid, lmid, center).scale(scaler)),
+                    generate_building_from_rectangle(rect(bmid, v1, center, rmid).scale(scaler)),
+                    generate_building_from_rectangle(rect(lmid, v2, center, tmid).scale(scaler)),
+                    generate_building_from_rectangle(rect(center, tmid, rmid, v3).scale(scaler)),
+                ],
+            });
+        }
+    }
+    return out;
 }
