@@ -27,7 +27,7 @@ impl City {
             }
             tmp
         };
-        let buildings = filter_buildings(buildings.as_slice(), context);
+        let buildings = filter_buildings(buildings.as_slice(),scaler, context);
         let buildings = purge_degenerates(buildings.as_slice());
         Self {
             roads,
@@ -55,7 +55,7 @@ impl City {
             }
             tmp
         };
-        let buildings = filter_buildings(buildings.as_slice(), context);
+        let buildings = filter_buildings(buildings.as_slice(),scaler, context);
         let buildings = purge_degenerates(buildings.as_slice());
         return Self {
             roads,

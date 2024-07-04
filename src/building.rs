@@ -46,7 +46,7 @@ impl Building {
                 if i == j {
                     continue;
                 }
-                if distance(&p[i], &p[j]) < 10_f64 {
+                if distance(&p[i], &p[j]) < 8_f64 {
                     return true;
                 }
             }
@@ -109,10 +109,10 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
     out
 }
 #[allow(unused)]
-pub fn filter_buildings(buildings: &[Building], context: &Context) -> Vec<Building> {
+pub fn filter_buildings(buildings: &[Building], scaler:f64,context: &Context) -> Vec<Building> {
     let mut out = vec![];
     for b in buildings {
-        if distance(&b.center_mass(), &context.center())>(context.width/2-100) as f64{
+        if distance(&b.center_mass(), &context.center())>(context.width/2) as f64*scaler{
             continue;
         }
         out.push(b.clone());

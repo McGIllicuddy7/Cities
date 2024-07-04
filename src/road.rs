@@ -354,17 +354,17 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
     out
 }
 
-fn noisy_connect_points(p0: Vector2, p1: Vector2, resolution: f64, context: &Context) -> Road {
+fn noisy_connect_points(p0: Vector2, p1: Vector2, resolution: f64, x_noise:&NoiseGenerator2d, y_noise:&NoiseGenerator2d,context: &Context) -> Road {
     let count = (distance(&p1, &p0).abs() / resolution) as usize;
-    let current = p0;
     let dvec = (p1 - p0) / count as f64;
-    let noisex = NoiseGenerator1d::new((count+1) as f64, 4.0, 10, context);
-    let noisey = NoiseGenerator1d::new((count+1) as f64, 4.0, 10, context);
+    let mut points = vec![];
+    for i in 0..count{
+        let current = p0+dvec*i as f64;
+        let p = current+vec2(x_noise.perlin(current),y_noise.perlin(current))*64.0+context.get_random_vector()*5.0;
+        points.push(p);
+    }
     Road {
-        points: (0..count + 1)
-            .map(|i| (current + dvec * i as f64+
-                vec2(noisex.get_value(i as f64)*30.0, noisey.get_value(i as f64)*30.0)))
-            .collect()
+        points
     }
 }
 
@@ -398,22 +398,46 @@ fn connect_points_through_lines(
             .collect(),
     };
 }
-
+#[allow(unused)]
+fn circularize_road(road:&Road, context:&Context)->Road{
+    let r = road.distance_to(context.center());
+    let mut out = vec![];
+    for p in &road.points{
+        let dvec = context.center()-p;
+        let l = length(&dvec);
+        let nvec = normalize(&dvec);
+        let len = interpolate(l, r, 0.8);
+        out.push(context.center()+nvec*len);
+    }
+    Road{points:out}
+}
 #[allow(unused)]
 pub fn generate_road_grid(radius: f64, context: &Context) -> (Vec<Road>, Vec<Road>) {
     let resolution: f64 = 50_f64;
     let mut vertical: Vec<Road> = vec![];
     let mut horizontal: Vec<Road> = vec![];
     let count = (radius * 2.0 / resolution) as usize;
+    let x_noise = NoiseGenerator2d::new(10, 5.0,context);
+    let y_noise = NoiseGenerator2d::new(10, 5.0,context);
     for i in 1..count {
         let p0 = vec2(0.0, i as f64 * radius * 2.0 / count as f64);
         let p1 = vec2(radius * 2.0, i as f64 * radius * 2.0 / count as f64);
-        horizontal.push(noisy_connect_points(p0, p1, resolution, context));
+        horizontal.push(noisy_connect_points(p0, p1, resolution, &x_noise, &y_noise,context));
     }
     for i in 1..count {
         let p0 = vec2(i as f64 * radius * 2.0 / count as f64, 0.0);
         let p1 = vec2(i as f64 * radius * 2.0 / count as f64, radius * 2.0);
         vertical.push(connect_points_through_lines(p0, p1, &horizontal, context));
+    }
+    let old_v = vertical;
+    let old_h = horizontal;
+    let mut vertical = vec![];
+    for i in &old_v{
+        vertical.push(circularize_road(i, context));
+    }
+    let mut horizontal = vec![];
+    for i in &old_h{
+        horizontal.push(circularize_road(i, context));
     }
     (horizontal, vertical)
 }

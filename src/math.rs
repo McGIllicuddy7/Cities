@@ -155,6 +155,7 @@ impl NoiseOctave1d{
     }
 }
 impl NoiseGenerator1d{
+    #[allow(unused)]
     pub fn new(length:f64, point_dist:f64, octaves_count:usize, context:&Context)->Self{
         let octaves = (0..octaves_count).
         map(|i| NoiseOctave1d::new(length, point_dist/(int_power(2, i) as f64), context)).
@@ -162,7 +163,85 @@ impl NoiseGenerator1d{
         let norm = (0..octaves_count).map(|i| int_power(0.5, i)).sum();
         return Self{octaves, norm};
     }
+    #[allow(unused)]
     pub fn get_value(&self,location:f64)->f64{
         ( 0..self.octaves.len()).map(|i| self.octaves[i].get_value(location)*int_power(0.5, i)/self.norm).sum()
+    }
+}
+pub fn interpolate(a0:f64, a1:f64, w:f64)->f64 {
+    (a1 - a0) * w + a0
+}
+#[allow(unused)]
+struct NoiseOctave2d{
+    points:Vec<Vec<Vector2>>,
+    scale_divisor:f64,
+}
+//based on https://en.wikipedia.org/wiki/Perlin_noise
+impl NoiseOctave2d{
+    pub fn new(context:&Context, scale_divisor:f64)->Self{
+        let mut points = vec![];
+        for _ in 0..256{
+            let mut tmp = vec![];
+            for _ in 0..256{
+                tmp.push(context.get_random_vector());
+            }
+            points.push(tmp);
+        }
+        Self{points, scale_divisor}
+    }
+    fn random_gradient(&self, x:i32, y:i32)->Vector2{
+        return self.points[y as usize % self.points.len()][x as usize% self.points.len()];
+    }
+    fn dot_grid_gradient(&self,ix:i32, iy:i32, x:f64, y:f64)->f64 {
+        let gradient = self.random_gradient(ix, iy);
+        let dx = x - ix as f64;
+        let dy = y - iy as f64;
+        dx*gradient.x + dy*gradient.y
+    }
+    
+    #[allow(unused)]
+    pub fn perlin(&self,x0:f64, y0:f64)->f64 {
+        let x = x0/16.0;
+        let y = y0/16.0;
+        let x0 = x.floor() as i32;
+        let x1 = x0 + 1;
+        let y0 = y.floor() as i32;
+        let y1 = y0 + 1;
+        let sx = x as f64 - x0 as f64;
+        let  sy = y as f64 - y0 as f64;
+        let n0 = self.dot_grid_gradient(x0, y0, x, y);
+        let n1 = self.dot_grid_gradient(x1, y0, x, y);
+        let ix0 = interpolate(n0, n1, sx);
+        let n0 = self.dot_grid_gradient(x0, y1, x, y);
+        let n1 = self.dot_grid_gradient(x1, y1, x, y);
+        let ix1 = interpolate(n0, n1, sx);
+        let value = interpolate(ix0, ix1, sy);
+        value
+    }
+}
+#[allow(unused)]
+pub struct NoiseGenerator2d{
+    octaves:Vec<NoiseOctave2d>
+}
+impl NoiseGenerator2d{
+    pub fn new(depth:usize, scale_divisor:f64,context:&Context)->Self{
+        let mut octaves = vec![];
+        for _ in 0..depth{
+            octaves.push(NoiseOctave2d::new(context, scale_divisor));
+        }
+        Self { octaves }
+    }
+    pub fn perlin(&self, v:Vector2)->f64{
+        let mut mlt = 1 as f64;
+        let mut out = 0.0;
+        let mut div = 1.0;
+        let mut scaler = 1.0;
+        for i in 0..self.octaves.len(){
+            div += mlt;
+            out += self.octaves[i].perlin(v.x/scaler, v.y*scaler)*mlt;
+            mlt *= 3.0/4.0;
+            scaler *= 2.0;
+        }
+        out /div
     }
 }
