@@ -11,7 +11,7 @@ pub struct City {
 
 impl City {
     #[allow(unused)]
-    pub fn new_rings(scaler: f64, context: &Context) -> Self {
+    pub fn new(scaler: f64, context: &Context) -> Self {
         let radius = 500.0 * scaler;
         let scale = 1.0 / scaler;
         let rings = road::generate_ring_system(radius, context);
@@ -36,35 +36,6 @@ impl City {
         }
         .scale(context, scale)
     }
-    #[allow(unused)]
-    pub fn new(scaler: f64, context: &Context) -> Self {
-        let radius = 500.0 * scaler;
-        let scale = 1.0 / scaler;
-        let roads_base = road::generate_road_grid(radius, context);
-        let hors: Vec<road::Road> = roads_base.0;
-        let verts: Vec<road::Road> = roads_base.1;
-        let roads: Vec<road::Road> = vec![hors.clone(), verts.clone()].concat();
-        let blocks = road::generate_blocks_from_road_grid(&verts, &hors, context);
-        let blocks = building::filter_blocks(&blocks, &context);
-        let buildings = {
-            let mut tmp = vec![];
-            for b in blocks {
-                for c in b.buildings {
-                    tmp.push(c);
-                }
-            }
-            tmp
-        };
-        let buildings = filter_buildings(buildings.as_slice(),scaler, context);
-        let buildings = purge_degenerates(buildings.as_slice());
-        return Self {
-            roads,
-            buildings,
-            water: vec![],
-        }
-        .scale(context, scale * 0.95);
-    }
-
     pub unsafe fn draw(&self, context: &Context) {
         for r in &self.roads {
             r.draw(context);
@@ -81,7 +52,7 @@ impl City {
         };
         let center = vec2(context.width as f64 / 2_f64, context.height as f64 / 2_f64);
         for r in &self.roads {
-            let mut tmp = road::Road { points: vec![] };
+            let mut tmp = road::Road { points: vec![] ,width:r.width*scaler};
             for v in &r.points {
                 let dv = v - center;
                 let nw = dv * scaler + center;

@@ -1,7 +1,8 @@
 use crate::context::Context;
 use crate::math::*;
 use crate::road;
-#[allow(unused)]
+use std::f64::consts::PI;
+
 #[derive(Clone, Copy)]
 pub struct Building {
     pub p0: Vector2,
@@ -10,8 +11,8 @@ pub struct Building {
     pub p3: Vector2,
 }
 impl Building {
-    #[allow(unused)]
-    pub unsafe fn draw(&self, context: &Context) {
+    
+    pub unsafe fn draw(&self, _context: &Context) {
         let a = to_raylib_vec(self.p0);
         let b = to_raylib_vec(self.p1);
         let c = to_raylib_vec(self.p2);
@@ -34,11 +35,14 @@ impl Building {
             p3: v[3],
         }
     }
-    #[allow(unused)]
+    
     pub fn into(&self) -> [Vector2; 4] {
         [self.p0, self.p1, self.p2, self.p3]
     }
     #[allow(unused)]
+    pub fn get_deltas(&self)->[Vector2;4]{
+        [self.p1-self.p0, self.p2-self.p0, self.p3-self.p1, self.p3-self.p2]
+    }
     fn is_degenerate(&self) -> bool {
         let p = self.into();
         for i in 0..p.len() {
@@ -46,15 +50,20 @@ impl Building {
                 if i == j {
                     continue;
                 }
-                if distance(&p[i], &p[j]) < 8_f64 {
+                if distance(&p[i], &p[j]) < 10_f64 {
                     return true;
                 }
             }
         }
-        false
+        let a0 = angle(&(p[1]-p[0]).normalize(), &(p[2]-p[0]).normalize());
+        let a3 = angle(&(p[1]-p[3]).normalize(), &(p[2]-p[3]).normalize());
+        let delt = (PI/8.0)*0.5;
+        let min_angle = PI/4.0-delt;
+        let max_angle = PI/4.0+delt;
+        !(a0>min_angle && a0<max_angle) && (a3>min_angle && a3<max_angle)
     }
 }
-#[allow(unused)]
+
 pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
     Building {
         p0: rect.v0,
@@ -74,7 +83,7 @@ pub fn generate_blocks(rings: &[road::Ring], context: &Context) -> Vec<Block> {
     out
 }
 
-#[allow(unused)]
+
 #[derive(Clone)]
 pub struct Block {
     pub buildings: Vec<Building>,
@@ -95,7 +104,7 @@ impl Block {
         false
     }
 }
-#[allow(unused)]
+
 pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
     let mut out = vec![];
     for b in blocks {
@@ -108,7 +117,7 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
     }
     out
 }
-#[allow(unused)]
+
 pub fn filter_buildings(buildings: &[Building], scaler:f64,context: &Context) -> Vec<Building> {
     let mut out = vec![];
     for b in buildings {
@@ -119,7 +128,7 @@ pub fn filter_buildings(buildings: &[Building], scaler:f64,context: &Context) ->
     }
     out
 }
-#[allow(unused)]
+
 pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
     let mut out = vec![];
     for b in buildings {

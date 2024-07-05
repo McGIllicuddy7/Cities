@@ -5,6 +5,9 @@ pub struct Context {
     pub block_scale: f64,
     pub building_scale: f64,
     pub whole_block_buildings_percent: i32,
+    pub small_width:f64, 
+    pub medium_width:f64, 
+    pub large_width:f64,
     rand_lock:std::sync::Mutex<()>,
 }
 impl Context {
@@ -14,6 +17,9 @@ impl Context {
         block_scale: f64,
         building_scale: f64,
         whole_block_buildings_percent: i32,
+        small_width:f64, 
+        medium_width:f64, 
+        large_width:f64
     ) -> Self {
         unsafe {
             raylib::ffi::SetRandomSeed(
@@ -31,6 +37,9 @@ impl Context {
             building_scale,
             whole_block_buildings_percent,
             rand_lock,
+            small_width, 
+            medium_width, 
+            large_width,
         }
     }
     pub fn center(&self) -> Vector2 {

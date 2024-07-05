@@ -14,16 +14,17 @@ use std::ffi::c_void;
 #[derive(Clone)]
 pub struct Road {
     pub points: Vec<Vector2>,
+    pub width:f64,
 }
 
 impl Road {
     #[allow(unused)]
-    pub fn new(points: &[Vector2]) -> Self {
+    pub fn new(points: &[Vector2], width:f64) -> Self {
         let mut v = vec![];
         for p in points {
             v.push(*p);
         }
-        Road { points: v }
+        Road { points: v ,width}
     }
 
     #[allow(unused)]
@@ -109,6 +110,35 @@ impl Road {
         }
         min
     }
+    #[allow(unused)]
+    pub fn get_start_offset_upper(&self)->Vector2{
+        let v = self.after_start()-self.get_start();
+        let t = v.normalize();
+        let rot = rotate_vec2(&t, -90.0);
+        -rot *self.width
+    }
+    #[allow(unused)]
+    pub fn get_start_offset_lower(&self)->Vector2{
+        let v = self.after_start()-self.get_start();
+        let t = v.normalize();
+        let rot = rotate_vec2(&t, 90.0);
+        -rot *self.width
+    }
+    #[allow(unused)]
+    pub fn get_end_offset_upper(&self)->Vector2{
+        let v = self.after_end()-self.get_end();
+        let t = v.normalize();
+        let rot = rotate_vec2(&t, -90.0);
+        -rot *self.width
+    }
+    #[allow(unused)]
+    pub fn get_end_offset_lower(&self)->Vector2{
+        let v = self.after_end()-self.get_end();
+        let t = v.normalize();
+        let rot = rotate_vec2(&t, -90.0);
+        -rot *self.width
+    }
+
 }
 
 fn single_road_gradient(road: &Road, location: Vector2) -> Vector2 {
@@ -182,39 +212,41 @@ pub fn road_gradient_clamped(roads: &[Road], location: Vector2, radius: f64) -> 
 }
 
 #[allow(unused)]
-fn generate_ring(radius: f64, disp: f64, resolution: f64, context: &Context) -> Road {
+fn generate_ring(radius: f64, disp: f64, resolution: f64, width:f64,tbase_noise:&NoiseGenerator2d, theta_noise:&NoiseGenerator2d, rad_noise:&NoiseGenerator2d, context:&Context) -> Road {
     let mut points: Vec<Vector2> = vec![];
     let circumference = 2.0 * PI * radius;
     let count = (circumference / resolution).floor();
     let min_r = radius - disp;
     let max_r = radius + disp;
     let theta_disp = TAU / count;
-    let theta_offset = (PI / count * 100.0) as i32;
-    let theta_base = context.get_random_value(-314, 314) as f64 / 10000 as f64;
+    let theta_offset = ((PI /count* 2.0)).round() as i32;
+    let theta_base =( tbase_noise.perlin(vec2(radius.ln()*1000.0, disp))*5.0+context.get_random_value(-314, 314) as f64 / 40000 as f64)*0.0;
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let d_theta = context.get_random_value(-628, 628) as f64 / 5000.0 / (radius.sqrt() / 7.0);
+        let mut d_theta = theta_noise.perlin(vec2(min_r/100.0, theta_0))+context.get_random_value(-628, 628) as f64 / 20000.0 / (radius.sqrt() / 7.0);
+        if d_theta>0.5{
+            d_theta = 0.5;
+        }
         let theta = theta_0 + d_theta + theta_base;
-        let rad =
-            context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
+        let rad =rad_noise.perlin(vec2(min_r/1000.0,theta) )+context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
     }
     points.push(points[0]);
-    Road { points }
+    Road { points ,width}
 }
 
 #[allow(unused)]
-fn link_points_with_road(v0: Vector2, v1: Vector2) -> Road {
+fn link_points_with_road(v0: Vector2, v1: Vector2,width:f64) -> Road {
     let mid = (v0 + v1) / 2_f64;
     let points = vec![v1, mid, v0];
-    return Road { points };
+    return Road { points ,width};
 }
 
 #[allow(unused)]
-fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
+fn link_roads(r0: &Road, r1: &Road, context:&Context) -> Vec<Road> {
     let a = {
         if r0.points.len() > r1.points.len() {
             r0
@@ -233,7 +265,14 @@ fn link_roads(r0: &Road, r1: &Road) -> Vec<Road> {
     let mut out: Vec<Road> = vec![];
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
-        out.push(link_points_with_road(a.points[idx], b.points[i]));
+        let width = {
+            if context.get_random_float()>0.8{
+                context.large_width
+            } else{
+                context.medium_width
+            }
+        };
+        out.push(link_points_with_road(a.points[idx], b.points[i], width));
     }
     out
 }
@@ -254,12 +293,22 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let count = (max_radius / dradius) as i32;
     let disp = 10.0;
     let resolution = 50.0;
-    let base = generate_ring(dradius / 2_f64, disp, resolution, context);
+    let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
+    let theta_noise =  NoiseGenerator2d::new(5, 100.0, context);
+    let rad_noise =  NoiseGenerator2d::new(5, 100.0, context); 
+    let base = generate_ring(dradius / 2_f64, disp, resolution, context.large_width, &theta_base_noise, &theta_noise, &rad_noise,context);
     rings.push(base);
     for i in 1..count {
         let radius = i as f64 * dradius;
-        let tmp = generate_ring(radius, disp, resolution, context);
-        let new_spines = link_roads(&tmp, &rings[rings.len() - 1]);
+        let ring_width = {
+            if context.get_random_float()>0.2{
+                context.large_width
+            } else{
+                context.small_width
+            }
+        };
+        let tmp = generate_ring(radius, disp, resolution, ring_width,&theta_base_noise,&theta_noise,&rad_noise, context);
+        let new_spines = link_roads(&tmp, &rings[rings.len() - 1], context);
         rings.push(tmp);
         spines.push(new_spines);
     }
@@ -287,7 +336,7 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
 
 #[allow(unused)]
 fn segment_available_locations(
-    _inner: &Road,
+    inner: &Road,
     outer: &Road,
     lower_side: &Road,
     upper_side: &Road,
@@ -298,9 +347,8 @@ fn segment_available_locations(
         v0: lower_side.get_start(),
         v1: upper_side.get_start(),
         v2: lower_side.get_end(),
-        v3: upper_side.get_end(),
-    }
-    .scale(context.block_scale);
+        v3: upper_side.get_end()
+    }.scale(0.95);
     if context.get_random_value(0, 100) < context.whole_block_buildings_percent {
         return vec![base];
     }
@@ -323,10 +371,10 @@ fn segment_available_locations(
     let center = (v0 + v1 + v2 + v3) / (4_f64);
     let scaler = context.building_scale;
     vec![
-        rect(v0, bmid, lmid, center).scale(scaler),
-        rect(bmid, v1, center, rmid).scale(scaler),
-        rect(lmid, v2, center, tmid).scale(scaler),
-        rect(center, tmid, rmid, v3).scale(scaler),
+        rect(v0, bmid, lmid, center),
+        rect(bmid, v1, center, rmid),
+        rect(lmid, v2, center, tmid),
+        rect(center, tmid, rmid, v3),
     ]
 }
 
@@ -352,140 +400,4 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
         out.push(tmp);
     }
     out
-}
-
-fn noisy_connect_points(p0: Vector2, p1: Vector2, resolution: f64, x_noise:&NoiseGenerator2d, y_noise:&NoiseGenerator2d,context: &Context) -> Road {
-    let count = (distance(&p1, &p0).abs() / resolution) as usize;
-    let dvec = (p1 - p0) / count as f64;
-    let mut points = vec![];
-    for i in 0..count{
-        let current = p0+dvec*i as f64;
-        let p = current+vec2(x_noise.perlin(current),y_noise.perlin(current))*64.0+context.get_random_vector()*5.0;
-        points.push(p);
-    }
-    Road {
-        points
-    }
-}
-
-fn connect_points_through_lines(
-    p0: Vector2,
-    p1: Vector2,
-    roads: &[Road],
-    _context: &Context,
-) -> Road {
-    let count = roads.len() + 2;
-    let mut prev = p0;
-    return Road {
-        points: (0..count)
-            .map(|i| {
-                if i == 0 {
-                    p0
-                } else if i == roads.len() + 1 {
-                    p1
-                } else {
-                    if i > 1 {
-                        let t = roads[i - 1].nearest_point_to(&prev);
-                        prev = t;
-                        t
-                    } else {
-                        let t = roads[i - 1].nearest_point_to(&p0);
-                        prev = t;
-                        t
-                    }
-                }
-            })
-            .collect(),
-    };
-}
-#[allow(unused)]
-fn circularize_road(road:&Road, context:&Context)->Road{
-    let r = road.distance_to(context.center());
-    let mut out = vec![];
-    for p in &road.points{
-        let dvec = context.center()-p;
-        let l = length(&dvec);
-        let nvec = normalize(&dvec);
-        let len = interpolate(l, r, 0.8);
-        out.push(context.center()+nvec*len);
-    }
-    Road{points:out}
-}
-#[allow(unused)]
-pub fn generate_road_grid(radius: f64, context: &Context) -> (Vec<Road>, Vec<Road>) {
-    let resolution: f64 = 50_f64;
-    let mut vertical: Vec<Road> = vec![];
-    let mut horizontal: Vec<Road> = vec![];
-    let count = (radius * 2.0 / resolution) as usize;
-    let x_noise = NoiseGenerator2d::new(10, 5.0,context);
-    let y_noise = NoiseGenerator2d::new(10, 5.0,context);
-    for i in 1..count {
-        let p0 = vec2(0.0, i as f64 * radius * 2.0 / count as f64);
-        let p1 = vec2(radius * 2.0, i as f64 * radius * 2.0 / count as f64);
-        horizontal.push(noisy_connect_points(p0, p1, resolution, &x_noise, &y_noise,context));
-    }
-    for i in 1..count {
-        let p0 = vec2(i as f64 * radius * 2.0 / count as f64, 0.0);
-        let p1 = vec2(i as f64 * radius * 2.0 / count as f64, radius * 2.0);
-        vertical.push(connect_points_through_lines(p0, p1, &horizontal, context));
-    }
-    let old_v = vertical;
-    let old_h = horizontal;
-    let mut vertical = vec![];
-    for i in &old_v{
-        vertical.push(circularize_road(i, context));
-    }
-    let mut horizontal = vec![];
-    for i in &old_h{
-        horizontal.push(circularize_road(i, context));
-    }
-    (horizontal, vertical)
-}
-#[allow(unused)]
-pub fn generate_blocks_from_road_grid(
-    verticals: &[Road],
-    horizontals: &[Road],
-    context: &Context,
-) -> Vec<Block> {
-    if verticals.len() < 3 || horizontals.len() < 3 {
-        return vec![];
-    }
-    let mut out = vec![];
-    for i in 1..horizontals.len() - 1 {
-        for j in 1..horizontals[i].points.len() - 1 {
-            let base = Rectangle {
-                v0: horizontals[i].points[j],
-                v1: horizontals[i].points[j + 1],
-                v2: horizontals[i + 1].points[j],
-                v3: horizontals[i + 1].points[j + 1],
-            }
-            .scale(context.block_scale);
-            let two = 2 as f64;
-            if context.get_random_value(0, 100) < context.whole_block_buildings_percent {
-                out.push(Block {
-                    buildings: vec![generate_building_from_rectangle(base)],
-                });
-                continue;
-            }
-            let v0 = base.v0;
-            let v1 = base.v1;
-            let v2 = base.v2;
-            let v3 = base.v3;
-            let bmid = (v0 + v1) / two;
-            let tmid = (v2 + v3) / two;
-            let lmid = (v0 + v2) / two;
-            let rmid = (v1 + v3) / two;
-            let center = (v0 + v1 + v2 + v3) / (4_f64);
-            let scaler = context.building_scale;
-            out.push(Block {
-                buildings: vec![
-                    generate_building_from_rectangle(rect(v0, bmid, lmid, center).scale(scaler)),
-                    generate_building_from_rectangle(rect(bmid, v1, center, rmid).scale(scaler)),
-                    generate_building_from_rectangle(rect(lmid, v2, center, tmid).scale(scaler)),
-                    generate_building_from_rectangle(rect(center, tmid, rmid, v3).scale(scaler)),
-                ],
-            });
-        }
-    }
-    return out;
 }
