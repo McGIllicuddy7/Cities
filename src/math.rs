@@ -180,9 +180,9 @@ struct NoiseOctave2d{
 impl NoiseOctave2d{
     pub fn new(context:&Context, scale_divisor:f64)->Self{
         let mut points = vec![];
-        for _ in 0..256{
+        for _ in 0..128{
             let mut tmp = vec![];
-            for _ in 0..256{
+            for _ in 0..128{
                 tmp.push(context.get_random_vector());
             }
             points.push(tmp);

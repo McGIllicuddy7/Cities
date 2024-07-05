@@ -57,7 +57,7 @@ impl Building {
         }
         let a0 = angle(&(p[1]-p[0]).normalize(), &(p[2]-p[0]).normalize());
         let a3 = angle(&(p[1]-p[3]).normalize(), &(p[2]-p[3]).normalize());
-        let delt = (PI/8.0)*0.5;
+        let delt = (PI/8.0)*2.0;
         let min_angle = PI/4.0-delt;
         let max_angle = PI/4.0+delt;
         !(a0>min_angle && a0<max_angle) && (a3>min_angle && a3<max_angle)
