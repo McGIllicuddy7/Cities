@@ -11,7 +11,6 @@ pub struct Building {
     pub p3: Vector2,
 }
 impl Building {
-    
     pub unsafe fn draw(&self, _context: &Context) {
         let a = to_raylib_vec(self.p0);
         let b = to_raylib_vec(self.p1);
@@ -35,32 +34,39 @@ impl Building {
             p3: v[3],
         }
     }
-    
+
     pub fn into(&self) -> [Vector2; 4] {
         [self.p0, self.p1, self.p2, self.p3]
     }
     #[allow(unused)]
-    pub fn get_deltas(&self)->[Vector2;4]{
-        [self.p1-self.p0, self.p2-self.p0, self.p3-self.p1, self.p3-self.p2]
+    pub fn get_deltas(&self) -> [Vector2; 4] {
+        [
+            self.p1 - self.p0,
+            self.p2 - self.p0,
+            self.p3 - self.p1,
+            self.p3 - self.p2,
+        ]
     }
     fn is_degenerate(&self) -> bool {
         let p = self.into();
+        let mut min = 1000 as f64;
+        let mut max = 0 as f64;
         for i in 0..p.len() {
             for j in 0..p.len() {
                 if i == j {
                     continue;
                 }
-                if distance(&p[i], &p[j]) < 8_f64 {
-                    return true;
+                let d = distance(&p[i], &p[j]);
+                if d < min {
+                    min = d;
+                }
+                if d > max {
+                    max = d;
                 }
             }
         }
-        let a0 = angle(&(p[1]-p[0]).normalize(), &(p[2]-p[0]).normalize());
-        let a3 = angle(&(p[1]-p[3]).normalize(), &(p[2]-p[3]).normalize());
-        let delt = (PI/8.0)*0.5;
-        let min_angle = PI/4.0-delt;
-        let max_angle = PI/4.0+delt;
-        !(a0>min_angle && a0<max_angle) && (a3>min_angle && a3<max_angle)
+        let rat = 4.0;
+        min / max > rat || max / min > rat
     }
 }
 
@@ -107,9 +113,11 @@ impl Block {
 
 pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
     let mut out = vec![];
+    let noise = NoiseGenerator2d::new(5, 1000.0, context);
     for b in blocks {
         let d = b.distance_to_center(context);
-        let r = (context.get_random_value(15, 50) * context.get_random_value(15, 50)) as f64;
+        let r =
+            (noise.perlin(b.center_mass() - context.center()) * (context.width * 32) as f64).abs();
         if d > r {
             continue;
         }
@@ -118,10 +126,10 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
     out
 }
 
-pub fn filter_buildings(buildings: &[Building], scaler:f64,context: &Context) -> Vec<Building> {
+pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) -> Vec<Building> {
     let mut out = vec![];
     for b in buildings {
-        if distance(&b.center_mass(), &context.center())>(context.width/2) as f64*scaler{
+        if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler {
             continue;
         }
         out.push(b.clone());
