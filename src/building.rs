@@ -50,14 +50,14 @@ impl Building {
                 if i == j {
                     continue;
                 }
-                if distance(&p[i], &p[j]) < 10_f64 {
+                if distance(&p[i], &p[j]) < 8_f64 {
                     return true;
                 }
             }
         }
         let a0 = angle(&(p[1]-p[0]).normalize(), &(p[2]-p[0]).normalize());
         let a3 = angle(&(p[1]-p[3]).normalize(), &(p[2]-p[3]).normalize());
-        let delt = (PI/8.0)*2.0;
+        let delt = (PI/8.0)*0.5;
         let min_angle = PI/4.0-delt;
         let max_angle = PI/4.0+delt;
         !(a0>min_angle && a0<max_angle) && (a3>min_angle && a3<max_angle)
@@ -72,6 +72,7 @@ pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
         p3: rect.v3,
     }
 }
+
 pub fn generate_blocks(rings: &[road::Ring], context: &Context) -> Vec<Block> {
     let mut out = vec![];
     for r in rings {
@@ -82,7 +83,6 @@ pub fn generate_blocks(rings: &[road::Ring], context: &Context) -> Vec<Block> {
     }
     out
 }
-
 
 #[derive(Clone)]
 pub struct Block {

@@ -1,3 +1,4 @@
+
 use crate::building::generate_building_from_rectangle;
 use crate::building::Block;
 use crate::context::Context;
@@ -335,6 +336,31 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
 }
 
 #[allow(unused)]
+//calculates new position so that point isn't in road
+fn calc_push(point:Vector2, road:&Road)->Vector2{
+    let distance = road.distance_to(point);
+    if distance>(*road).width{
+        return point;
+    }
+    let g = single_road_gradient(road, point);
+    let v = normalize(&g);
+    let base = point-v*road.width;
+    base+v*distance
+}
+#[allow(unused)]
+fn scale_rect_to_roads(base:&Rectangle, top:&Road, bottom:&Road, left:&Road, right:&Road)->Rectangle{
+    let mut b:[Vector2;4] = base.as_array();
+    for i in 0..4{
+        b[i] = calc_push(b[i], top);
+        b[i] = calc_push(b[i], bottom);
+        b[i] = calc_push(b[i], left);
+        b[i] = calc_push(b[i], right);
+    }
+    Rectangle::from(b)
+}
+
+
+#[allow(unused)]
 fn segment_available_locations(
     inner: &Road,
     outer: &Road,
@@ -343,12 +369,12 @@ fn segment_available_locations(
     context: &Context,
 ) -> Vec<Rectangle> {
     let two = 2 as f64;
-    let base = Rectangle {
+    let base = scale_rect_to_roads(&Rectangle {
         v0: lower_side.get_start(),
         v1: upper_side.get_start(),
         v2: lower_side.get_end(),
         v3: upper_side.get_end()
-    }.scale(0.95);
+    }.scale(0.95), &outer, &inner, &lower_side, &upper_side);
     if context.get_random_value(0, 100) < context.whole_block_buildings_percent {
         return vec![base];
     }

@@ -2,11 +2,12 @@ use crate::building::{filter_buildings, purge_degenerates};
 use crate::context::Context;
 use crate::math::*;
 use crate::{building, road};
+use crate::road::Road;
 #[allow(unused)]
 pub struct City {
-    pub roads: Vec<road::Road>,
+    pub roads: Vec<Road>,
     pub buildings: Vec<building::Building>,
-    pub water: Vec<road::Road>,
+    pub water: Vec<Road>,
 }
 
 impl City {
@@ -52,7 +53,7 @@ impl City {
         };
         let center = vec2(context.width as f64 / 2_f64, context.height as f64 / 2_f64);
         for r in &self.roads {
-            let mut tmp = road::Road { points: vec![] ,width:r.width*scaler};
+            let mut tmp = Road { points: vec![] ,width:r.width*scaler};
             for v in &r.points {
                 let dv = v - center;
                 let nw = dv * scaler + center;

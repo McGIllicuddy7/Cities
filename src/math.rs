@@ -92,6 +92,7 @@ where T: std::ops::MulAssign+Copy+From<i32>
     }
     out
 }
+#[derive(Clone,Copy)]
 pub struct Rectangle{
     pub v0:Vector2,
     pub v1:Vector2,
@@ -120,8 +121,8 @@ impl Rectangle{
          Self { v0: v[0], v1: v[1],v2:v[2] ,v3:v[3] }
     }
     #[allow(unused)]
-    pub fn into(&self)->[Vector2;4]{
-        [self.v0,self.v1,self.v2,self.v3]
+    pub fn as_array(&self)->[Vector2;4]{
+        [self.v0,self.v1,self.v2,self.v3] as [Vector2; 4]
     }
 }
 #[allow(unused)]
