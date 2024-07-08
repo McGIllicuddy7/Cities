@@ -98,7 +98,7 @@ impl Road {
     }
 
     #[allow(unused)]
-    pub fn nearest_point_to(&self, location: &Vector2) -> Vector2 {
+    pub fn nearest_point_discrete(&self, location: &Vector2) -> Vector2 {
         let mut min = self.points[0];
         let mut min_dist = distance(&min, &location);
         for i in &self.points {
@@ -137,6 +137,78 @@ impl Road {
         let t = v.normalize();
         let rot = rotate_vec2(&t, -90.0);
         -rot * self.width
+    }
+    #[allow(unused)]
+    pub fn get_nearest_point_continuous(&self, location: Vector2) -> Vector2 {
+        let mut min = self.points[0];
+        let mut min_dist = distance(&min, &location);
+        for i in 0..self.points.len() - 1 {
+            let start = self.points[i];
+            let end = self.points[i + 1];
+            let p = nearest_point_on_line_segment(location, start, end);
+            let d = distance(&p, &location);
+            if d < min_dist {
+                min = p;
+                min_dist = d;
+            }
+        }
+        min
+    }
+    #[allow(unused)]
+    fn normal_from_start_idx(&self, idx: usize) -> Option<Vector2> {
+        if idx >= self.points.len() - 1 {
+            return None;
+        }
+        let delta = normalize(&(self.points[idx + 1] - self.points[idx]));
+        return Some(rotate_vec2(&delta, 90.0));
+    }
+    #[allow(unused)]
+    pub fn get_normal_at_location_toward(
+        &self,
+        location: Vector2,
+        location_towards: Vector2,
+    ) -> Option<Vector2> {
+        let mut start_idx = 0;
+        let mut end_idx = 1;
+        let mut found = false;
+        for i in 0..self.points.len() - 1 {
+            let s = self.points[i];
+            let e = self.points[i + 1];
+            if is_between_points(location, s, e) || s == location || e == location {
+                found = true;
+                start_idx = i;
+                end_idx = i + 1;
+            }
+        }
+        if (!found) {
+            println!("not found\n");
+            return None;
+        }
+        let norm = if self.points[start_idx] == location {
+            if start_idx == 0 {
+                self.normal_from_start_idx(0);
+            }
+            normalize(
+                &(self.normal_from_start_idx(start_idx - 1)?
+                    + self.normal_from_start_idx(start_idx)?),
+            )
+        } else if self.points[end_idx] == location {
+            if end_idx == self.points.len() - 1 {
+                self.normal_from_start_idx(end_idx - 1)?
+            } else {
+                normalize(
+                    &(self.normal_from_start_idx(end_idx - 1)?
+                        + self.normal_from_start_idx(end_idx)?),
+                )
+            }
+        } else {
+            self.normal_from_start_idx(start_idx)?
+        };
+        if dot(&norm, &(location_towards - location)) > 0.0 {
+            Some(normalize(&norm))
+        } else {
+            Some(-normalize(&norm))
+        }
     }
 }
 
@@ -366,16 +438,19 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
 
 #[allow(unused)]
 //calculates new position so that point isn't in road
-fn calc_push(point: Vector2, norm_point: Vector2, road: &Road) -> Vector2 {
-    let distance = road.distance_to(point);
-    if distance > (*road).width {
-        return norm_point;
+fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
+    if road.distance_to(point) > (*road).width {
+        return vec2(0.0, 0.0);
     }
-    let g = single_road_gradient(road, point);
-    let v = normalize(&g);
-    let base = point + v * road.width;
-    base - v * distance
+    let mut p = road.get_nearest_point_continuous(point);
+    let norm = road
+        .get_normal_at_location_toward(p, *center)
+        .expect("this had better work");
+    let mut dist = road.width - (distance(&point, &p));
+
+    return norm * dist;
 }
+
 #[allow(unused)]
 fn scale_rect_to_roads(
     base: &Rectangle,
@@ -385,12 +460,13 @@ fn scale_rect_to_roads(
     right: &Road,
 ) -> Rectangle {
     let a = base.as_array();
-    let mut b: [Vector2; 4] = base.scale(0.5).as_array();
+    let center = base.center();
+    let mut b = a;
     for i in 0..4 {
-        b[i] = calc_push(b[i], a[i], top);
-        b[i] = calc_push(b[i], a[i], bottom);
-        b[i] = calc_push(b[i], a[i], left);
-        b[i] = calc_push(b[i], a[i], right);
+        b[i] += calc_push(b[i], top, &center);
+        b[i] += calc_push(b[i], bottom, &center);
+        b[i] += calc_push(b[i], left, &center);
+        b[i] += calc_push(b[i], right, &center);
     }
     Rectangle::from(b)
 }
@@ -410,8 +486,7 @@ fn segment_available_locations(
             v1: upper_side.get_start(),
             v2: lower_side.get_end(),
             v3: upper_side.get_end(),
-        }
-        .scale(1.0),
+        },
         &outer,
         &inner,
         &lower_side,

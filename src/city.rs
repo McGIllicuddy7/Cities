@@ -1,8 +1,8 @@
 use crate::building::{filter_buildings, purge_degenerates};
 use crate::context::Context;
 use crate::math::*;
-use crate::{building, road};
 use crate::road::Road;
+use crate::{building, road};
 #[allow(unused)]
 pub struct City {
     pub roads: Vec<Road>,
@@ -28,7 +28,7 @@ impl City {
             }
             tmp
         };
-        let buildings = filter_buildings(buildings.as_slice(),scaler, context);
+        let buildings = filter_buildings(buildings.as_slice(), scaler, context);
         let buildings = purge_degenerates(buildings.as_slice());
         Self {
             roads,
@@ -53,7 +53,10 @@ impl City {
         };
         let center = vec2(context.width as f64 / 2_f64, context.height as f64 / 2_f64);
         for r in &self.roads {
-            let mut tmp = Road { points: vec![] ,width:r.width*scaler};
+            let mut tmp = Road {
+                points: vec![],
+                width: r.width * scaler,
+            };
             for v in &r.points {
                 let dv = v - center;
                 let nw = dv * scaler + center;

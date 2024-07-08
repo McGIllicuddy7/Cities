@@ -1,7 +1,6 @@
 use crate::context::Context;
 use crate::math::*;
 use crate::road;
-use std::f64::consts::PI;
 
 #[derive(Clone, Copy)]
 pub struct Building {
@@ -66,7 +65,7 @@ impl Building {
             }
         }
         let rat = 4.0;
-        min / max > rat || max / min > rat
+        false
     }
 }
 
@@ -140,7 +139,7 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
 pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
     let mut out = vec![];
     for b in buildings {
-        if !b.is_degenerate() {
+        if !b.is_degenerate() || true {
             out.push(b.clone());
         }
     }
