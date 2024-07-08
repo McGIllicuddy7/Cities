@@ -186,7 +186,7 @@ impl Road {
         }
         let norm = if self.points[start_idx] == location {
             if start_idx == 0 {
-                self.normal_from_start_idx(0);
+                return self.normal_from_start_idx(0);
             }
             normalize(
                 &(self.normal_from_start_idx(start_idx - 1)?
@@ -394,7 +394,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.2 {
+            if context.get_random_float() > 0.8 {
                 context.large_width
             } else {
                 context.small_width
@@ -443,11 +443,23 @@ fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
         return vec2(0.0, 0.0);
     }
     let mut p = road.get_nearest_point_continuous(point);
+    let dp = normalize(&(point-p));
+    let dc = normalize(&(center-p));
+    let point = {
+        if dot(&dc, &dp)<0.0{
+            point
+        } else{
+            point-2.0*(point-p)
+        }
+    };
     let norm = road
         .get_normal_at_location_toward(p, *center)
         .expect("this had better work");
+    let base_dist = distance(&point, &center);
     let mut dist = road.width - (distance(&point, &p));
-
+    if base_dist< distance(&(norm*dist), &point){
+        dist = 1.0*dist;
+    }
     return norm * dist;
 }
 
@@ -459,16 +471,29 @@ fn scale_rect_to_roads(
     left: &Road,
     right: &Road,
 ) -> Rectangle {
-    let a = base.as_array();
-    let center = base.center();
-    let mut b = a;
-    for i in 0..4 {
-        b[i] += calc_push(b[i], top, &center);
-        b[i] += calc_push(b[i], bottom, &center);
-        b[i] += calc_push(b[i], left, &center);
-        b[i] += calc_push(b[i], right, &center);
+    let s = base.scale(0.95);
+    let a = s.as_array();
+    let center = s.center();
+    let mut out = a;
+    let mut count = 0;
+    loop{
+        let mut b = out;
+        for i in 0..4 {
+            b[i] += calc_push(b[i], top, &center);
+            b[i] += calc_push(b[i], bottom, &center);
+            b[i] += calc_push(b[i], left, &center);
+            b[i] += calc_push(b[i], right, &center);
+        }
+        if distance(&Rectangle::from(b).center(),&Rectangle::from(out).center())<0.1{
+            break;
+        }
+        out = b;
+        count += 1;
+        if count>4{
+            break;
+        }
     }
-    Rectangle::from(b)
+    Rectangle::from(out)
 }
 
 #[allow(unused)]
@@ -514,10 +539,10 @@ fn segment_available_locations(
     let center = (v0 + v1 + v2 + v3) / (4_f64);
     let scaler = context.building_scale;
     vec![
-        rect(v0, bmid, lmid, center),
-        rect(bmid, v1, center, rmid),
-        rect(lmid, v2, center, tmid),
-        rect(center, tmid, rmid, v3),
+        rect(v0, bmid, lmid, center).scale(scaler),
+        rect(bmid, v1, center, rmid).scale(scaler),
+        rect(lmid, v2, center, tmid).scale(scaler),
+        rect(center, tmid, rmid, v3).scale(scaler),
     ]
 }
 

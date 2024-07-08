@@ -64,9 +64,44 @@ impl Building {
                 }
             }
         }
-        let rat = 4.0;
-        false
+        let rat = 3.0;
+        min/max >rat || max/min >rat ||min<5.0 || max<5.0
     }
+    pub fn to_rect(&self)->Rectangle{
+        Rectangle { v0: self.p0, v1:self.p1, v2: self.p2, v3: self.p3 }
+    }
+    ///returns the approximate area assuming the thing is mostly rectangular, the longest length
+    ///times the shortest length
+    #[allow(unused)]
+    pub fn area(&self)->f64{
+        let points = self.to_rect().as_array();
+        let mut max = 0.0;
+        for i in 0..4{
+            for j in 0..4{
+                if j == i{
+                    continue;
+                }
+                let d = distance(&points[i], &points[j]);
+                if d>max{
+                    max = d;
+                }
+            }
+        }
+        let mut min = max;
+        for i in 0..4{
+            for j in 0..4{
+                if j == i{
+                    continue;
+                }
+                let d = distance(&points[i], &points[j]);
+                if d<min{
+                    min = d;
+                }
+            }
+        }
+        return max*min;
+    }
+
 }
 
 pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
@@ -117,7 +152,7 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
         let d = b.distance_to_center(context);
         let r =
             (noise.perlin(b.center_mass() - context.center()) * (context.width * 32) as f64).abs();
-        if d > r {
+        if d > r && r>(context.width/4) as f64{
             continue;
         }
         out.push(b.clone());
@@ -135,13 +170,36 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
     }
     out
 }
-
-pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
+fn purge_overlapping(buildings:&[Building])->Vec<Building>{
     let mut out = vec![];
-    for b in buildings {
-        if !b.is_degenerate() || true {
-            out.push(b.clone());
+    for i in 0..buildings.len(){
+        let mut overlapped = false;
+        for j in 0..buildings.len(){
+            if i == j{
+                continue;
+            }
+            if rectangles_overlap(&buildings[i].to_rect(), &buildings[j].to_rect()){
+                let a0 = buildings[i].area();
+                let a1 = buildings[j].area();
+                if a0<a1{
+                    overlapped = true;
+                    break;
+                }
+            }
+        }
+        if !overlapped{
+            out.push(buildings[i]);
         }
     }
+    out
+}
+pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
+    let mut state0 = vec![];
+    for b in buildings {
+        if !b.is_degenerate() {
+            state0.push(b.clone());
+        }
+    }
+    let out = purge_overlapping(state0.as_slice());
     out
 }

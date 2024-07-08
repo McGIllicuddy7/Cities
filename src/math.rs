@@ -154,6 +154,39 @@ impl Rectangle {
         (self.v0 + self.v1 + self.v2 + self.v3) / 4_f64
     }
 }
+//https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
+#[allow(unused)]
+pub fn triangle_contains_point(point:&Vector2, v1:&Vector2, v2:&Vector2, v3:&Vector2)->bool{
+    fn sign (p1:&Vector2, p2:&Vector2, p3:&Vector2)->f64{
+        (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
+    }
+    let d1  = sign(point, v1, v2);
+    let d2 = sign(point,v2, v3);
+    let d3 = sign(point, v3, v1);
+    let has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
+    let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
+    !(has_neg && has_pos)
+}
+#[allow(unused)]
+pub fn rectangles_overlap(a:&Rectangle, b:&Rectangle)->bool{
+    let av = a.as_array();
+    let bv = b.as_array();
+    for i in &av{
+        if triangle_contains_point(i,&bv[0],&bv[1], &bv[2]){
+            return true;
+        } else if triangle_contains_point(i, &bv[3], &bv[2], &bv[1]){
+            return true;
+        }
+    }
+    for i in &bv{
+        if triangle_contains_point(i,&av[0],&av[1], &av[2]){
+            return true;
+        } else if triangle_contains_point(i, &av[3], &av[2], &av[1]){
+            return true;
+        }
+    }
+    return false;
+}
 #[allow(unused)]
 struct NoiseOctave1d {
     pub points: Vec<f64>,
