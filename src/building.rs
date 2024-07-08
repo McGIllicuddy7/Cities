@@ -1,5 +1,6 @@
 use crate::context::Context;
 use crate::math::*;
+use crate::prof_frame;
 use crate::road;
 
 #[derive(Clone, Copy)]
@@ -47,6 +48,7 @@ impl Building {
         ]
     }
     fn is_degenerate(&self) -> bool {
+        prof_frame!("Building::is_generate()");
         let p = self.into();
         let mut min = 1000 as f64;
         let mut max = 0 as f64;
@@ -65,43 +67,48 @@ impl Building {
             }
         }
         let rat = 3.0;
-        min/max >rat || max/min >rat ||min<5.0 || max<5.0
+        min / max > rat || max / min > rat || min < 5.0 || max < 5.0
     }
-    pub fn to_rect(&self)->Rectangle{
-        Rectangle { v0: self.p0, v1:self.p1, v2: self.p2, v3: self.p3 }
+    pub fn to_rect(&self) -> Rectangle {
+        Rectangle {
+            v0: self.p0,
+            v1: self.p1,
+            v2: self.p2,
+            v3: self.p3,
+        }
     }
     ///returns the approximate area assuming the thing is mostly rectangular, the longest length
     ///times the shortest length
     #[allow(unused)]
-    pub fn area(&self)->f64{
+    pub fn area(&self) -> f64 {
+        prof_frame!("Building::area");
         let points = self.to_rect().as_array();
         let mut max = 0.0;
-        for i in 0..4{
-            for j in 0..4{
-                if j == i{
+        for i in 0..4 {
+            for j in 0..4 {
+                if j == i {
                     continue;
                 }
                 let d = distance(&points[i], &points[j]);
-                if d>max{
+                if d > max {
                     max = d;
                 }
             }
         }
         let mut min = max;
-        for i in 0..4{
-            for j in 0..4{
-                if j == i{
+        for i in 0..4 {
+            for j in 0..4 {
+                if j == i {
                     continue;
                 }
                 let d = distance(&points[i], &points[j]);
-                if d<min{
+                if d < min {
                     min = d;
                 }
             }
         }
-        return max*min;
+        return max * min;
     }
-
 }
 
 pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
@@ -114,6 +121,7 @@ pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
 }
 
 pub fn generate_blocks(rings: &[road::Ring], context: &Context) -> Vec<Block> {
+    prof_frame!("Building::generate_blocks");
     let mut out = vec![];
     for r in rings {
         let tmp = road::ring_available_locations(r, context);
@@ -130,6 +138,7 @@ pub struct Block {
 }
 impl Block {
     pub fn center_mass(&self) -> Vector2 {
+        prof_frame!("Block::center_mass()");
         let mut out = vec2(0.0, 0.0);
         for i in &self.buildings {
             out += i.center_mass();
@@ -146,13 +155,14 @@ impl Block {
 }
 
 pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
+    prof_frame!("Building::filter_blocks()");
     let mut out = vec![];
     let noise = NoiseGenerator2d::new(5, 1000.0, context);
     for b in blocks {
         let d = b.distance_to_center(context);
         let r =
             (noise.perlin(b.center_mass() - context.center()) * (context.width * 32) as f64).abs();
-        if d > r && r>(context.width/4) as f64{
+        if d > r && r > (context.width / 4) as f64 {
             continue;
         }
         out.push(b.clone());
@@ -161,6 +171,7 @@ pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
 }
 
 pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) -> Vec<Building> {
+    prof_frame!("Building::filter_buildings()");
     let mut out = vec![];
     for b in buildings {
         if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler {
@@ -170,30 +181,32 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
     }
     out
 }
-fn purge_overlapping(buildings:&[Building])->Vec<Building>{
+fn purge_overlapping(buildings: &[Building]) -> Vec<Building> {
+    prof_frame!("Building::purge_overlapping()");
     let mut out = vec![];
-    for i in 0..buildings.len(){
+    for i in 0..buildings.len() {
         let mut overlapped = false;
-        for j in 0..buildings.len(){
-            if i == j{
+        for j in 0..buildings.len() {
+            if i == j {
                 continue;
             }
-            if rectangles_overlap(&buildings[i].to_rect(), &buildings[j].to_rect()){
+            if rectangles_overlap(&buildings[i].to_rect(), &buildings[j].to_rect()) {
                 let a0 = buildings[i].area();
                 let a1 = buildings[j].area();
-                if a0<a1{
+                if a0 < a1 {
                     overlapped = true;
                     break;
                 }
             }
         }
-        if !overlapped{
+        if !overlapped {
             out.push(buildings[i]);
         }
     }
     out
 }
 pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
+    prof_frame!("Building::purge_degenerates()");
     let mut state0 = vec![];
     for b in buildings {
         if !b.is_degenerate() {

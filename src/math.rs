@@ -2,8 +2,10 @@ pub use nalgebra_glm::*;
 
 use crate::context::*;
 pub type Vector2 = TVec2<f64>;
+use crate::prof_frame;
 #[allow(unused)]
 pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vector2 {
+    prof_frame!("math::project_vector2_line");
     if end == start {
         return end;
     }
@@ -15,6 +17,7 @@ pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vec
 }
 #[allow(unused)]
 pub fn is_between_points(point: Vector2, start: Vector2, end: Vector2) -> bool {
+    prof_frame!("math::is_between_points");
     let first = {
         let p = point - start;
         let e = end - start;
@@ -37,6 +40,7 @@ pub fn is_between_points(point: Vector2, start: Vector2, end: Vector2) -> bool {
 }
 #[allow(unused)]
 pub fn dist_point_to_line(point: Vector2, start: Vector2, end: Vector2) -> f64 {
+    prof_frame!("math::distance_point_to_line");
     let proj = project_vector2_line(point, start, end);
     let btwn = is_between_points(proj, start, end);
     if btwn {
@@ -53,6 +57,7 @@ pub fn dist_point_to_line(point: Vector2, start: Vector2, end: Vector2) -> f64 {
 }
 #[allow(unused)]
 pub fn nearest_point_on_line_segment(point: Vector2, start: Vector2, end: Vector2) -> Vector2 {
+    prof_frame!("math::nearest_point_on_line_segment");
     let proj = project_vector2_line(point, start, end);
     let btwn = is_between_points(proj, start, end);
     if btwn {
@@ -69,6 +74,7 @@ pub fn nearest_point_on_line_segment(point: Vector2, start: Vector2, end: Vector
 }
 #[allow(unused)]
 pub fn to_raylib_vec(v: Vector2) -> raylib::ffi::Vector2 {
+    prof_frame!("math::to_raylib_vec");
     raylib::ffi::Vector2 {
         x: v.x as f32,
         y: v.y as f32,
@@ -76,6 +82,7 @@ pub fn to_raylib_vec(v: Vector2) -> raylib::ffi::Vector2 {
 }
 #[allow(unused)]
 pub fn gradient(v: &[Vector2], point: Vector2) -> Vector2 {
+    prof_frame!("math::gradient");
     let mut out = vec2(0.0, 0.0);
     for p in v {
         let delta = p - point;
@@ -86,6 +93,7 @@ pub fn gradient(v: &[Vector2], point: Vector2) -> Vector2 {
 }
 #[allow(unused)]
 pub fn gradient_clamped(v: &[Vector2], point: Vector2, max_radius: f64) -> Vector2 {
+    prof_frame!("math::gradient_clamped");
     let mut out = vec2(0.0, 0.0);
     for p in v {
         if distance(p, &point) < max_radius {
@@ -101,6 +109,7 @@ pub fn int_power<T>(base: T, other: usize) -> T
 where
     T: std::ops::MulAssign + Copy + From<i32>,
 {
+    prof_frame!("math::int_power");
     let mut out = T::from(1);
     for i in 0..other {
         out *= base;
@@ -120,6 +129,7 @@ pub fn rect(v0: Vector2, v1: Vector2, v2: Vector2, v3: Vector2) -> Rectangle {
 impl Rectangle {
     #[allow(unused)]
     pub fn scale(&self, scale: f64) -> Rectangle {
+        prof_frame!("Rectangle::scale");
         let center = (self.v0 + self.v1 + self.v2 + self.v3) / 4_f64;
         let dv0 = self.v0 - center;
         let dv1 = self.v1 - center;
@@ -156,32 +166,34 @@ impl Rectangle {
 }
 //https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
 #[allow(unused)]
-pub fn triangle_contains_point(point:&Vector2, v1:&Vector2, v2:&Vector2, v3:&Vector2)->bool{
-    fn sign (p1:&Vector2, p2:&Vector2, p3:&Vector2)->f64{
+pub fn triangle_contains_point(point: &Vector2, v1: &Vector2, v2: &Vector2, v3: &Vector2) -> bool {
+    prof_frame!("math::triangle_contains_point");
+    fn sign(p1: &Vector2, p2: &Vector2, p3: &Vector2) -> f64 {
         (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
     }
-    let d1  = sign(point, v1, v2);
-    let d2 = sign(point,v2, v3);
+    let d1 = sign(point, v1, v2);
+    let d2 = sign(point, v2, v3);
     let d3 = sign(point, v3, v1);
     let has_neg = (d1 < 0.0) || (d2 < 0.0) || (d3 < 0.0);
     let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
     !(has_neg && has_pos)
 }
 #[allow(unused)]
-pub fn rectangles_overlap(a:&Rectangle, b:&Rectangle)->bool{
+pub fn rectangles_overlap(a: &Rectangle, b: &Rectangle) -> bool {
+    prof_frame!("math::rectangles_overlap");
     let av = a.as_array();
     let bv = b.as_array();
-    for i in &av{
-        if triangle_contains_point(i,&bv[0],&bv[1], &bv[2]){
+    for i in &av {
+        if triangle_contains_point(i, &bv[0], &bv[1], &bv[2]) {
             return true;
-        } else if triangle_contains_point(i, &bv[3], &bv[2], &bv[1]){
+        } else if triangle_contains_point(i, &bv[3], &bv[2], &bv[1]) {
             return true;
         }
     }
-    for i in &bv{
-        if triangle_contains_point(i,&av[0],&av[1], &av[2]){
+    for i in &bv {
+        if triangle_contains_point(i, &av[0], &av[1], &av[2]) {
             return true;
-        } else if triangle_contains_point(i, &av[3], &av[2], &av[1]){
+        } else if triangle_contains_point(i, &av[3], &av[2], &av[1]) {
             return true;
         }
     }
@@ -199,6 +211,7 @@ pub struct NoiseGenerator1d {
 }
 impl NoiseOctave1d {
     pub fn new(length: f64, point_dist: f64, context: &Context) -> Self {
+        prof_frame!("NoiseOctave1d::new()");
         let p0 = context.get_random_float();
         let mut points = vec![];
         let count = (length / point_dist).floor() as usize;
@@ -209,6 +222,7 @@ impl NoiseOctave1d {
         Self { points, point_dist }
     }
     pub fn get_value(&self, location: f64) -> f64 {
+        prof_frame!("NoiseOctave1d::get_value()");
         let a = (location / self.point_dist).floor();
         let b = (location / self.point_dist).ceil();
         let l_val = location / self.point_dist - a;
@@ -220,6 +234,7 @@ impl NoiseOctave1d {
 impl NoiseGenerator1d {
     #[allow(unused)]
     pub fn new(length: f64, point_dist: f64, octaves_count: usize, context: &Context) -> Self {
+        prof_frame!("NoiseGenerate1d::new()");
         let octaves = (0..octaves_count)
             .map(|i| NoiseOctave1d::new(length, point_dist / (int_power(2, i) as f64), context))
             .collect();
@@ -228,6 +243,7 @@ impl NoiseGenerator1d {
     }
     #[allow(unused)]
     pub fn get_value(&self, location: f64) -> f64 {
+        prof_frame!("NoiseGenerator1d::get_value()");
         (0..self.octaves.len())
             .map(|i| self.octaves[i].get_value(location) * int_power(0.5, i) / self.norm)
             .sum()
@@ -244,6 +260,7 @@ struct NoiseOctave2d {
 //based on https://en.wikipedia.org/wiki/Perlin_noise
 impl NoiseOctave2d {
     pub fn new(context: &Context, scale_divisor: f64) -> Self {
+        prof_frame!("NoiseOctave2d::new()");
         let mut points = vec![];
         for _ in 0..128 {
             let mut tmp = vec![];
@@ -269,6 +286,7 @@ impl NoiseOctave2d {
 
     #[allow(unused)]
     pub fn perlin(&self, x0: f64, y0: f64) -> f64 {
+        prof_frame!("NoiseOctave2d::perlin()");
         let x = x0 / 16.0;
         let y = y0 / 16.0;
         let x0 = x.floor() as i32;
@@ -293,6 +311,7 @@ pub struct NoiseGenerator2d {
 }
 impl NoiseGenerator2d {
     pub fn new(depth: usize, scale_divisor: f64, context: &Context) -> Self {
+        prof_frame!("NoiseGenerator2d::new()");
         let mut octaves = vec![];
         for _ in 0..depth {
             octaves.push(NoiseOctave2d::new(context, scale_divisor));
@@ -300,6 +319,7 @@ impl NoiseGenerator2d {
         Self { octaves }
     }
     pub fn perlin(&self, v: Vector2) -> f64 {
+        prof_frame!("NoiseGenerator2d::perlin()");
         let mut mlt = 1 as f64;
         let mut out = 0.0;
         let mut div = 1.0;

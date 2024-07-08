@@ -1,6 +1,7 @@
 use crate::building::{filter_buildings, purge_degenerates};
 use crate::context::Context;
 use crate::math::*;
+use crate::prof_frame;
 use crate::road::Road;
 use crate::{building, road};
 #[allow(unused)]
@@ -13,6 +14,7 @@ pub struct City {
 impl City {
     #[allow(unused)]
     pub fn new(scaler: f64, context: &Context) -> Self {
+        prof_frame!("City::new()");
         let radius = 500.0 * scaler;
         let scale = 1.0 / scaler;
         let rings = road::generate_ring_system(radius, context);
@@ -46,6 +48,7 @@ impl City {
         }
     }
     pub fn scale(&self, context: &Context, scaler: f64) -> Self {
+        prof_frame!("City::scale()");
         let mut out = Self {
             roads: vec![],
             buildings: vec![],

@@ -3,6 +3,7 @@ use crate::building::Block;
 use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
+use crate::prof_frame;
 #[allow(unused)]
 use std::f64::consts::PI;
 #[allow(unused)]
@@ -20,6 +21,7 @@ pub struct Road {
 impl Road {
     #[allow(unused)]
     pub fn new(points: &[Vector2], width: f64) -> Self {
+        prof_frame!("Road::new()");
         let mut v = vec![];
         for p in points {
             v.push(*p);
@@ -29,6 +31,7 @@ impl Road {
 
     #[allow(unused)]
     pub fn distance_to(&self, point: Vector2) -> f64 {
+        prof_frame!("Road::distance_to");
         let mut min = distance(&self.points[0], &point);
         for i in 0..self.points.len() - 1 {
             let dist = dist_point_to_line(point, self.points[i], self.points[i + 1]);
@@ -69,6 +72,7 @@ impl Road {
 
     #[allow(unused)]
     pub fn point_index(&self, point: Vector2) -> Option<usize> {
+        prof_frame!("Road::point_index");
         for i in 0..self.points.len() {
             if distance(&self.points[i], &point) < 1.1 {
                 return Some(i);
@@ -99,6 +103,7 @@ impl Road {
 
     #[allow(unused)]
     pub fn nearest_point_discrete(&self, location: &Vector2) -> Vector2 {
+        prof_frame!("Road::nearest_point_discrete()");
         let mut min = self.points[0];
         let mut min_dist = distance(&min, &location);
         for i in &self.points {
@@ -140,6 +145,7 @@ impl Road {
     }
     #[allow(unused)]
     pub fn get_nearest_point_continuous(&self, location: Vector2) -> Vector2 {
+        prof_frame!("Road::get_nearest_point_continuous()");
         let mut min = self.points[0];
         let mut min_dist = distance(&min, &location);
         for i in 0..self.points.len() - 1 {
@@ -156,6 +162,7 @@ impl Road {
     }
     #[allow(unused)]
     fn normal_from_start_idx(&self, idx: usize) -> Option<Vector2> {
+        prof_frame!("Road::normal_from_start()");
         if idx >= self.points.len() - 1 {
             return None;
         }
@@ -168,6 +175,7 @@ impl Road {
         location: Vector2,
         location_towards: Vector2,
     ) -> Option<Vector2> {
+        prof_frame!("Road::get_normal_at_location_toward");
         let mut start_idx = 0;
         let mut end_idx = 1;
         let mut found = false;
@@ -211,7 +219,7 @@ impl Road {
         }
     }
 }
-
+#[allow(unused)]
 fn single_road_gradient(road: &Road, location: Vector2) -> Vector2 {
     let mu = 0.01;
     let base = road.distance_to(location);
@@ -293,6 +301,7 @@ fn generate_ring(
     rad_noise: &NoiseGenerator2d,
     context: &Context,
 ) -> Road {
+    prof_frame!("Road::generate_ring()");
     let mut points: Vec<Vector2> = vec![];
     let circumference = 2.0 * PI * radius;
     let count = (circumference / resolution).floor();
@@ -324,6 +333,7 @@ fn generate_ring(
 
 #[allow(unused)]
 fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
+    prof_frame!("Road::link_points_with_road()");
     let mid = (v0 + v1) / 2_f64;
     let points = vec![v1, mid, v0];
     return Road { points, width };
@@ -331,6 +341,7 @@ fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
 
 #[allow(unused)]
 fn link_roads(r0: &Road, r1: &Road, context: &Context) -> Vec<Road> {
+    prof_frame!("Road::link_roads()");
     let a = {
         if r0.points.len() > r1.points.len() {
             r0
@@ -370,6 +381,7 @@ pub struct Ring {
 
 #[allow(unused)]
 pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
+    prof_frame!("road::generate_ring_system()");
     let mut out = vec![];
     let mut rings = vec![];
     let mut spines = vec![];
@@ -427,6 +439,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
 
 #[allow(unused)]
 pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
+    prof_frame!("Road::collect_rings_to_roads()");
     let mut out = vec![rings[0].inner.clone(), rings[0].outer.clone()];
     out.append(&mut rings[0].spines.clone());
     for i in 1..rings.len() {
@@ -439,17 +452,18 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
 #[allow(unused)]
 //calculates new position so that point isn't in road
 fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
+    prof_frame!("Road::calc_push()");
     if road.distance_to(point) > (*road).width {
         return vec2(0.0, 0.0);
     }
     let mut p = road.get_nearest_point_continuous(point);
-    let dp = normalize(&(point-p));
-    let dc = normalize(&(center-p));
+    let dp = normalize(&(point - p));
+    let dc = normalize(&(center - p));
     let point = {
-        if dot(&dc, &dp)<0.0{
+        if dot(&dc, &dp) < 0.0 {
             point
-        } else{
-            point-2.0*(point-p)
+        } else {
+            point - 2.0 * (point - p)
         }
     };
     let norm = road
@@ -457,8 +471,8 @@ fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
         .expect("this had better work");
     let base_dist = distance(&point, &center);
     let mut dist = road.width - (distance(&point, &p));
-    if base_dist< distance(&(norm*dist), &point){
-        dist = 1.0*dist;
+    if base_dist < distance(&(norm * dist), &point) {
+        dist = 1.0 * dist;
     }
     return norm * dist;
 }
@@ -471,12 +485,13 @@ fn scale_rect_to_roads(
     left: &Road,
     right: &Road,
 ) -> Rectangle {
+    prof_frame!("Road::scale_rect_to_roads()");
     let s = base.scale(0.95);
     let a = s.as_array();
     let center = s.center();
     let mut out = a;
     let mut count = 0;
-    loop{
+    loop {
         let mut b = out;
         for i in 0..4 {
             b[i] += calc_push(b[i], top, &center);
@@ -484,12 +499,12 @@ fn scale_rect_to_roads(
             b[i] += calc_push(b[i], left, &center);
             b[i] += calc_push(b[i], right, &center);
         }
-        if distance(&Rectangle::from(b).center(),&Rectangle::from(out).center())<0.1{
+        if distance(&Rectangle::from(b).center(), &Rectangle::from(out).center()) < 0.1 {
             break;
         }
         out = b;
         count += 1;
-        if count>4{
+        if count > 4 {
             break;
         }
     }
@@ -504,6 +519,7 @@ fn segment_available_locations(
     upper_side: &Road,
     context: &Context,
 ) -> Vec<Rectangle> {
+    prof_frame!("Road::segment_avaiable_locations()");
     let two = 2 as f64;
     let base = scale_rect_to_roads(
         &Rectangle {
@@ -548,6 +564,7 @@ fn segment_available_locations(
 
 #[allow(unused)]
 pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
+    prof_frame!("Road::ring_available_locations()");
     let mut out = vec![];
     let inner = &ring.inner;
     let outer = &ring.outer;
