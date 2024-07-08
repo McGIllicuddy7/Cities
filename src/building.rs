@@ -48,7 +48,7 @@ impl Building {
         ]
     }
     fn is_degenerate(&self) -> bool {
-        prof_frame!("Building::is_generate()");
+        prof_frame!("Building::is_degenerate()");
         let p = self.into();
         let mut min = 1000 as f64;
         let mut max = 0 as f64;
@@ -81,7 +81,7 @@ impl Building {
     ///times the shortest length
     #[allow(unused)]
     pub fn area(&self) -> f64 {
-        prof_frame!("Building::area");
+        prof_frame!("Building::area()");
         let points = self.to_rect().as_array();
         let mut max = 0.0;
         for i in 0..4 {
@@ -121,7 +121,7 @@ pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
 }
 
 pub fn generate_blocks(rings: &[road::Ring], context: &Context) -> Vec<Block> {
-    prof_frame!("Building::generate_blocks");
+    prof_frame!("Building::generate_blocks()");
     let mut out = vec![];
     for r in rings {
         let tmp = road::ring_available_locations(r, context);

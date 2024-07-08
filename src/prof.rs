@@ -34,21 +34,30 @@ macro_rules! prof_frame {
 struct TimeManager {
     times: Option<*mut HashMap<&'static str, u128>>,
     stack: Vec<&'static str>,
+    completed: bool,
 }
 impl TimeManager {
     pub fn frame_push(&mut self, frame: &ProfileFrame) {
+        if self.completed {
+            return;
+        };
         if self.times.is_none() {
+            println!("initialized");
             let m = Box::new(HashMap::new() as HashMap<&'static str, u128>);
             let t = Box::leak(m);
             self.times = Some(t);
         }
         let times = unsafe { &mut *self.times.expect("should be initialized") };
         if !(times.contains_key(frame.func_name)) {
+            // println!("inserted {}", frame.func_name);
             times.insert(frame.func_name, 0);
         }
         self.stack.push(frame.func_name);
     }
     pub fn frame_pop(&mut self, frame: &ProfileFrame) {
+        if self.completed {
+            return;
+        }
         let times = unsafe { &mut *self.times.expect("should be initialized") };
         let t = times
             .get(frame.func_name)
@@ -63,12 +72,15 @@ impl TimeManager {
             }
             for (key, value) in &*times {
                 println!(
-                    "{} took {}, {}% of the run time",
+                    "{}:
+                        took {} seconds, 
+                        {}% of the run time",
                     key,
                     duration_get(*value),
                     duration_get(*value) / (total as f64 / 1_000_000.) * 100.0
-                );
+                )
             }
+            self.completed = true;
         }
     }
 }
@@ -76,6 +88,7 @@ impl TimeManager {
 static mut TIME_MAN: TimeManager = TimeManager {
     times: None,
     stack: vec![],
+    completed: false,
 };
 
 fn frame_push(frame: &ProfileFrame) {

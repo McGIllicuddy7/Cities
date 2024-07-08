@@ -9,7 +9,8 @@ mod road;
 pub fn main() {
     let t = private_profile_start("main");
     let context = crate::context::Context::new(1000, 1000, 0.85, 0.95, 5, 2.0, 8.0, 12.0);
-    let c = city::City::new(0.5, &context);
+    let c = city::City::new(1.0, &context);
+    println!("profile finished\n");
     drop(t);
     unsafe {
         raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
