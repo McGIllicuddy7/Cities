@@ -8,7 +8,6 @@ pub struct Context {
     pub small_width:f64, 
     pub medium_width:f64, 
     pub large_width:f64,
-    rand_lock:std::sync::Mutex<()>,
 }
 impl Context {
     pub fn new(
@@ -21,22 +20,12 @@ impl Context {
         medium_width:f64, 
         large_width:f64
     ) -> Self {
-        unsafe {
-            raylib::ffi::SetRandomSeed(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_secs() as u32,
-            );
-        }
-        let rand_lock = std::sync::Mutex::new(());
         Self {
             height,
             width,
             block_scale,
             building_scale,
             whole_block_buildings_percent,
-            rand_lock,
             small_width, 
             medium_width, 
             large_width,
@@ -46,9 +35,7 @@ impl Context {
         vec2(self.width as f64 / 2.0, self.height as f64 / 2.0)
     }
     pub fn get_random_value(&self, minimum: i32, maximum: i32) -> i32 {
-        let b = self.rand_lock.lock().unwrap();
-        let v =  unsafe { raylib::ffi::GetRandomValue(minimum, maximum) };
-        drop(b);
+        let v =  (minimum+maximum)/2;
         v
     }
     pub fn get_random_float(&self)->f64{
