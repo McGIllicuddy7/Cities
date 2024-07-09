@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::thread::{Thread, ThreadId};
 use std::time;
 #[allow(unused)]
 ////
@@ -35,6 +36,7 @@ struct TimeManager {
     times: Option<*mut HashMap<&'static str, u128>>,
     stack: Vec<&'static str>,
     completed: bool,
+    pid:Option<ThreadId>,
 }
 impl TimeManager {
     pub fn frame_push(&mut self, frame: &ProfileFrame) {
@@ -46,7 +48,14 @@ impl TimeManager {
             let m = Box::new(HashMap::new() as HashMap<&'static str, u128>);
             let t = Box::leak(m);
             self.times = Some(t);
+            self.pid = Some(std::thread::current().id());
         }
+        if self.pid.is_some(){
+            if self.pid.unwrap() != std::thread::current().id(){
+                return;
+            }
+        }
+        //safety: any thead other than the originating one will have returned by now
         let times = unsafe { &mut *self.times.expect("should be initialized") };
         if !(times.contains_key(frame.func_name)) {
             // println!("inserted {}", frame.func_name);
@@ -55,9 +64,15 @@ impl TimeManager {
         self.stack.push(frame.func_name);
     }
     pub fn frame_pop(&mut self, frame: &ProfileFrame) {
+        if self.pid.is_some(){
+            if self.pid.unwrap() != std::thread::current().id(){
+                return;
+            }
+        }
         if self.completed {
             return;
         }
+        //safety: any thread other than the orignating one will have returned by now
         let times = unsafe { &mut *self.times.expect("should be initialized") };
         let t = times
             .get(frame.func_name)
@@ -86,6 +101,7 @@ static mut TIME_MAN: TimeManager = TimeManager {
     times: None,
     stack: vec![],
     completed: false,
+    pid: None,
     
 };
 

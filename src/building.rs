@@ -3,7 +3,6 @@ use crate::context::Context;
 use crate::math::*;
 use crate::prof_frame;
 use crate::road;
-use std::collections::HashSet;
 #[derive(Clone, Copy)]
 pub struct Building {
     pub p0: Vector2,
@@ -184,6 +183,7 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
 }
 
 fn exterminadus(buildings_arc:std::sync::Arc<[Building]>, start:usize, end:usize)->Vec<Building>{
+    prof_frame!("Building::exterminadus()");
     let mut out = vec![];
     let buildings = &buildings_arc;
     for i in start..end{
@@ -224,6 +224,6 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
     let t0 = thread::spawn(move ||(exterminadus(s0, 0,l/4)));
     let t1 = thread::spawn(move ||(exterminadus(s1, l/4, l/2)));
     let t2 = thread::spawn(move ||(exterminadus(s2,l/2, 3*l/4)));
-    let t3 = thread::spawn(move ||(exterminadus(s3, 3*l/4,l)));
-    vec![t0.join().unwrap(),t1.join().unwrap(), t2.join().unwrap(), t3.join().unwrap()].into_iter().flatten().collect()
+    let t3 = exterminadus(s3, 3*l/4,l);
+    vec![t0.join().unwrap(),t1.join().unwrap(), t2.join().unwrap(), t3].into_iter().flatten().collect()
 }
