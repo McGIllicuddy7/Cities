@@ -35,8 +35,8 @@ impl Context {
         vec2(self.width as f64 / 2.0, self.height as f64 / 2.0)
     }
     pub fn get_random_value(&self, minimum: i32, maximum: i32) -> i32 {
-        let v =  (minimum+maximum)/2;
-        v
+        rand::random::<i32>()%(maximum-minimum)+minimum
+
     }
     pub fn get_random_float(&self)->f64{
         self.get_random_value(0, 100_000_000) as f64 /100_000_000 as f64

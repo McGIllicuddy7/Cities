@@ -183,7 +183,31 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
     out
 }
 
+fn exterminadus(buildings_arc:std::sync::Arc<[Building]>, start:usize, end:usize)->Vec<Building>{
+    let mut out = vec![];
+    let buildings = &buildings_arc;
+    for i in start..end{
+        let mut overlaps = false;
+        for j in 0..buildings.len(){
+            if j == i{
+                continue;
+            }
+            if rectangles_overlap(&buildings[i].to_rect(),&buildings[j].to_rect()){
+                if buildings[i].area()<buildings[j].area(){
+                    overlaps = true;
+                    break;
+                }
+            }
+        }
+        if !overlaps{
+            out.push(buildings[i]);
+        }
+    }
+    out
+}
 pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
+    use std::thread;
+    use std::sync::Arc;
     prof_frame!("Building::purge_degenerates()");
     let mut state0 = vec![];
     for b in buildings {
@@ -191,5 +215,15 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
             state0.push(b.clone());
         }
     }
-    state0
+    let s:Arc<[Building]> = state0.into();
+    let s0 = s.clone();
+    let s1 = s.clone();
+    let s2 = s.clone();
+    let s3 = s.clone();
+    let l = s.len();
+    let t0 = thread::spawn(move ||(exterminadus(s0, 0,l/4)));
+    let t1 = thread::spawn(move ||(exterminadus(s1, l/4, l/2)));
+    let t2 = thread::spawn(move ||(exterminadus(s2,l/2, 3*l/4)));
+    let t3 = thread::spawn(move ||(exterminadus(s3, 3*l/4,l)));
+    vec![t0.join().unwrap(),t1.join().unwrap(), t2.join().unwrap(), t3.join().unwrap()].into_iter().flatten().collect()
 }

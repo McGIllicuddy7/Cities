@@ -1,4 +1,3 @@
-
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time;
@@ -75,7 +74,7 @@ impl TimeManager {
             let total = times_vec[0].1;
             for j in times_vec{
                 println!("{} took 
-    {} seconds, 
+                    {} seconds, 
     {}% of total time", j.0, duration_get(j.1), duration_get(j.1)/duration_get(total)*100.0);
             }
             self.completed = true;
@@ -87,6 +86,7 @@ static mut TIME_MAN: TimeManager = TimeManager {
     times: None,
     stack: vec![],
     completed: false,
+    
 };
 
 fn frame_push(frame: &ProfileFrame) {

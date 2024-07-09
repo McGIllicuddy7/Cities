@@ -8,8 +8,7 @@ use crate::prof_frame;
 use std::f64::consts::PI;
 #[allow(unused)]
 use std::f64::consts::TAU;
-#[allow(unused)]
-use std::ffi::c_void;
+
 
 #[allow(unused)]
 #[derive(Clone)]
@@ -161,20 +160,17 @@ impl Road {
         min
     }
     #[allow(unused)]
-    fn normal_from_start_idx(&self, idx: usize) -> Option<Vector2> {
+    fn normal_from_start_idx(&self, idx: usize) -> Vector2{
         prof_frame!("Road::normal_from_start()");
-        if idx >= self.points.len() - 1 {
-            return None;
-        }
         let delta = normalize(&(self.points[idx + 1] - self.points[idx]));
-        return Some(rotate_vec2(&delta, 90.0));
+        return rotate_vec2(&delta, 90.0);
     }
     #[allow(unused)]
     pub fn get_normal_at_location_toward(
         &self,
         location: Vector2,
         location_towards: Vector2,
-    ) -> Option<Vector2> {
+    ) ->Vector2 {
         prof_frame!("Road::get_normal_at_location_toward");
         let mut start_idx = 0;
         let mut end_idx = 1;
@@ -190,32 +186,32 @@ impl Road {
         }
         if (!found) {
             println!("not found\n");
-            return None;
+            return vec2(0.0, 0.0);
         }
         let norm = if self.points[start_idx] == location {
             if start_idx == 0 {
                 return self.normal_from_start_idx(0);
             }
             normalize(
-                &(self.normal_from_start_idx(start_idx - 1)?
-                    + self.normal_from_start_idx(start_idx)?),
+                &(self.normal_from_start_idx(start_idx - 1)
+                    + self.normal_from_start_idx(start_idx)),
             )
         } else if self.points[end_idx] == location {
             if end_idx == self.points.len() - 1 {
-                self.normal_from_start_idx(end_idx - 1)?
+                self.normal_from_start_idx(end_idx - 1)
             } else {
                 normalize(
-                    &(self.normal_from_start_idx(end_idx - 1)?
-                        + self.normal_from_start_idx(end_idx)?),
+                    &(self.normal_from_start_idx(end_idx - 1)
+                        + self.normal_from_start_idx(end_idx)),
                 )
             }
         } else {
-            self.normal_from_start_idx(start_idx)?
+            self.normal_from_start_idx(start_idx)
         };
         if dot(&norm, &(location_towards - location)) > 0.0 {
-            Some(normalize(&norm))
+            normalize(&norm)
         } else {
-            Some(-normalize(&norm))
+            -normalize(&norm)
         }
     }
 }
@@ -316,13 +312,13 @@ fn generate_ring(
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta = theta_noise.perlin(vec2(min_r / 100.0, theta_0))
+        let mut d_theta = theta_noise.perlin(vec2(min_r, theta_0))*1.0
             + context.get_random_value(-628, 628) as f64 / 20000.0 / (radius.sqrt() / 7.0);
-        if d_theta > 0.5 {
-            d_theta = 0.5;
+        if d_theta > 1.0 {
+            d_theta = 1.0;
         }
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 1000.0, theta))
+        let rad = rad_noise.perlin(vec2(min_r / 500.0, theta))*2.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
@@ -460,20 +456,15 @@ fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
     let dp = normalize(&(point - p));
     let dc = normalize(&(center - p));
     let point = {
-        if dot(&dc, &dp) < 0.0 {
+        if dot(&dp, &dc) < 0.0 {
             point
         } else {
             point - 2.0 * (point - p)
         }
     };
-    let norm = road
-        .get_normal_at_location_toward(p, *center)
-        .expect("this had better work");
+    let norm = road.get_normal_at_location_toward(p, *center);
     let base_dist = distance(&point, &center);
-    let mut dist = road.width - (distance(&point, &p));
-    if base_dist < distance(&(norm * dist), &point) {
-        dist = 1.0 * dist;
-    }
+    let dist = road.width - (distance(&point, &p));
     return norm * dist;
 }
 

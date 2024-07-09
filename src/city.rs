@@ -20,7 +20,7 @@ impl City {
         let rings = road::generate_ring_system(radius, context);
         let roads = road::collect_rings_to_roads(&rings);
         let blocks = building::generate_blocks(rings.as_slice(), context);
-        let blocks = building::filter_blocks(&blocks, &context);
+        let blocks = building::filter_blocks(&blocks,context);
         let buildings = {
             let mut tmp = vec![];
             for b in blocks {

@@ -167,7 +167,6 @@ impl Rectangle {
 //https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
 #[allow(unused)]
 pub fn triangle_contains_point(point: &Vector2, v1: &Vector2, v2: &Vector2, v3: &Vector2) -> bool {
-    prof_frame!("math::triangle_contains_point");
     fn sign(p1: &Vector2, p2: &Vector2, p3: &Vector2) -> f64 {
         (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
     }
@@ -180,7 +179,6 @@ pub fn triangle_contains_point(point: &Vector2, v1: &Vector2, v2: &Vector2, v3: 
 }
 #[allow(unused)]
 pub fn rectangles_overlap(a: &Rectangle, b: &Rectangle) -> bool {
-    prof_frame!("math::rectangles_overlap");
     let av = a.as_array();
     let bv = b.as_array();
     for i in &av {
