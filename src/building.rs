@@ -1,3 +1,4 @@
+
 use crate::context::Context;
 use crate::math::*;
 use crate::prof_frame;
@@ -182,88 +183,6 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
     out
 }
 
-fn purge_overlapping(buildings: &[Building]) -> Vec<Building> {
-    const DIM:usize = 25;
-    struct Purge{
-        state:Vec<Vec<Rectangle>>,
-        min_y:f64,
-        min_x:f64,
-        max_y:f64,
-        max_x:f64,
-    }
-    impl Purge{
-        pub fn calc_point_idx(&self, point:Vector2)->usize{
-            let dy = point.y -self.min_y;
-            let dx = point.x-self.min_x;
-            let dist_x = self.max_x-self.min_x;
-            let dist_y = self.max_y-self.min_y;
-            let ix = (dx/dist_x).round() as usize * DIM;
-            let iy = (dy/dist_y).round() as usize * DIM;
-            iy*DIM+ix
-        }
-        pub fn new(buildings: &[Rectangle])->Self{
-            prof_frame!("Purge::new()");
-            let mut min_y = 0.0;
-            let mut min_x = 0.0;
-            let mut max_y = 0.0;
-            let mut max_x = 0.0;
-            let mut state = vec![];
-            for _ in 0..DIM*DIM{
-               state.push(vec![]);
-            }
-            for b in buildings{
-                for p in b.as_array(){
-                    if p.y<min_y{
-                        min_y = p.y;
-                    }
-                    if p.x<min_x{
-                        min_x = p.x;
-                    }
-                    if p.y>max_y{
-                        max_y = p.y;
-                    }
-                    if p.x>max_x{
-                        max_x = p.x;
-                    }
-                }
-            }
-            let mut out = Purge{state, min_y, min_x, max_y, max_x};
-            for b in buildings{
-                let mut hit_set = HashSet::new();
-                for p in b.as_array(){
-                    let i = out.calc_point_idx(p);
-                    if !hit_set.contains(&i){
-                        hit_set.insert(i);
-                        out.state[i].push(*b);
-                    }
-                }
-            }
-            out
-        }
-    }
-    prof_frame!("Building::purge_overlapping()");
-    let mut out = vec![];
-    for i in 0..buildings.len() {
-        let mut overlapped = false;
-        for j in 0..buildings.len() {
-            if i == j {
-                continue;
-            }
-            if rectangles_overlap(&buildings[i].to_rect(), &buildings[j].to_rect()) {
-                let a0 = buildings[i].area();
-                let a1 = buildings[j].area();
-                if a0 < a1 {
-                    overlapped = true;
-                    break;
-                }
-            }
-        }
-        if !overlapped {
-            out.push(buildings[i]);
-        }
-    }
-    out
-}
 pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
     prof_frame!("Building::purge_degenerates()");
     let mut state0 = vec![];
@@ -272,6 +191,5 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
             state0.push(b.clone());
         }
     }
-    let out = purge_overlapping(state0.as_slice());
-    out
+    state0
 }
