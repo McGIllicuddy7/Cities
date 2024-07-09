@@ -1,4 +1,5 @@
-use lazy_static::lazy_static;
+
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::time;
 #[allow(unused)]
@@ -66,19 +67,16 @@ impl TimeManager {
         times.insert(frame.func_name, t);
         self.stack.pop();
         if self.stack.len() == 0 {
-            let mut total = 0 as u128;
-            for (_, value) in &*times {
-                total += *value;
-            }
+            let mut times_vec = vec![];
             for (key, value) in &*times {
-                println!(
-                    "{}:
-                        took {} seconds, 
-                        {}% of the run time",
-                    key,
-                    duration_get(*value),
-                    duration_get(*value) / (total as f64 / 1_000_000.) * 100.0
-                )
+                times_vec.push((*key,*value));
+            }
+            times_vec.sort_unstable_by(|a,b| if a.1>b.1{Ordering::Less} else if a.1<b.1{Ordering::Greater} else{Ordering::Equal});
+            let total = times_vec[0].1;
+            for j in times_vec{
+                println!("{} took 
+    {} seconds, 
+    {}% of total time", j.0, duration_get(j.1), duration_get(j.1)/duration_get(total)*100.0);
             }
             self.completed = true;
         }

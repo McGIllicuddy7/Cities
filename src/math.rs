@@ -116,7 +116,7 @@ where
     }
     out
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Rectangle {
     pub v0: Vector2,
     pub v1: Vector2,
