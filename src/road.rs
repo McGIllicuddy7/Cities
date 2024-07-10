@@ -9,7 +9,6 @@ use std::f64::consts::PI;
 #[allow(unused)]
 use std::f64::consts::TAU;
 
-
 #[allow(unused)]
 #[derive(Clone)]
 pub struct Road {
@@ -160,7 +159,7 @@ impl Road {
         min
     }
     #[allow(unused)]
-    fn normal_from_start_idx(&self, idx: usize) -> Vector2{
+    fn normal_from_start_idx(&self, idx: usize) -> Vector2 {
         prof_frame!("Road::normal_from_start()");
         let delta = normalize(&(self.points[idx + 1] - self.points[idx]));
         return rotate_vec2(&delta, 90.0);
@@ -170,7 +169,7 @@ impl Road {
         &self,
         location: Vector2,
         location_towards: Vector2,
-    ) ->Vector2 {
+    ) -> Vector2 {
         prof_frame!("Road::get_normal_at_location_toward");
         let mut start_idx = 0;
         let mut end_idx = 1;
@@ -300,25 +299,31 @@ fn generate_ring(
     prof_frame!("Road::generate_ring()");
     let mut points: Vec<Vector2> = vec![];
     let circumference = 2.0 * PI * radius;
-    let count = (circumference / resolution).floor();
+    let count = {
+        let tmp_count = (circumference / resolution).floor()
+            + (context.get_random_float() * context.get_random_float() * 4.0).floor();
+        if tmp_count < 4.0 {
+            4.0
+        } else {
+            tmp_count
+        }
+    };
     let min_r = radius - disp;
     let max_r = radius + disp;
     let theta_disp = TAU / count;
     let theta_offset = (PI / count * 2.0).round() as i32;
-    let theta_base = (tbase_noise.perlin(vec2(radius.ln() * 1000.0, disp)) * 5.0
-        + context.get_random_value(-314, 314) as f64 / 40000 as f64)
-        * 0.0;
+    let theta_base = (tbase_noise.perlin(vec2(min_r / 100.0, max_r / 100.0)) * 0.5);
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta = theta_noise.perlin(vec2(min_r, theta_0))*1.0
-            + context.get_random_value(-628, 628) as f64 / 20000.0 / (radius.sqrt() / 7.0);
-        if d_theta > 1.0 {
-            d_theta = 1.0;
+        let mut d_theta =
+            theta_noise.perlin(vec2(theta_0 * 16.0, theta_0 * 16.0)) * 10.0 + (radius.sqrt() / 7.0);
+        if d_theta > 0.5 {
+            d_theta = 0.5;
         }
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 500.0, theta))*2.0
+        let rad = rad_noise.perlin(vec2(min_r / 500.0, theta)) * 0.05
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
@@ -336,7 +341,7 @@ fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
 }
 
 #[allow(unused)]
-fn link_roads(r0: &Road, r1: &Road, context: &Context) -> Vec<Road> {
+fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> {
     prof_frame!("Road::link_roads()");
     let a = {
         if r0.points.len() > r1.points.len() {
@@ -357,7 +362,7 @@ fn link_roads(r0: &Road, r1: &Road, context: &Context) -> Vec<Road> {
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let width = {
-            if context.get_random_float() > 0.8 {
+            if context.get_random_float() > 0.8 || idx % 3 == 0 {
                 context.large_width
             } else {
                 context.medium_width
@@ -369,6 +374,7 @@ fn link_roads(r0: &Road, r1: &Road, context: &Context) -> Vec<Road> {
 }
 
 #[allow(unused)]
+#[derive(Clone)]
 pub struct Ring {
     pub inner: Road,
     pub outer: Road,
@@ -386,23 +392,24 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let disp = 10.0;
     let resolution = 50.0;
     let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
-    let theta_noise = NoiseGenerator2d::new(5, 100.0, context);
-    let rad_noise = NoiseGenerator2d::new(5, 100.0, context);
+    let theta_noise = NoiseGenerator2d::new(10, 500.0, context);
+    let rad_noise = NoiseGenerator2d::new(6, 500.0, context);
     let base = generate_ring(
         dradius / 2_f64,
         disp,
         resolution,
-        context.large_width,
+        context.small_width,
         &theta_base_noise,
         &theta_noise,
         &rad_noise,
         context,
     );
     rings.push(base);
+    let base_idx = context.get_random_value(0, 10000) as usize;
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.8 {
+            if context.get_random_float() > 0.9 || i % 4 == 0 {
                 context.large_width
             } else {
                 context.small_width
@@ -418,7 +425,12 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
             &rad_noise,
             context,
         );
-        let new_spines = link_roads(&tmp, &rings[rings.len() - 1], context);
+        let new_spines = link_roads(
+            &tmp,
+            &rings[rings.len() - 1],
+            i as usize + base_idx,
+            context,
+        );
         rings.push(tmp);
         spines.push(new_spines);
     }
@@ -477,7 +489,7 @@ fn scale_rect_to_roads(
     right: &Road,
 ) -> Rectangle {
     prof_frame!("Road::scale_rect_to_roads()");
-    let s = base.scale(0.95);
+    let s = base;
     let a = s.as_array();
     let center = s.center();
     let mut out = a;
@@ -485,19 +497,14 @@ fn scale_rect_to_roads(
     loop {
         let mut b = out;
         for i in 0..4 {
-            b[i] += calc_push(b[i], top, &center);
-            b[i] += calc_push(b[i], bottom, &center);
-            b[i] += calc_push(b[i], left, &center);
-            b[i] += calc_push(b[i], right, &center);
-        }
-        if distance(&Rectangle::from(b).center(), &Rectangle::from(out).center()) < 0.1 {
-            break;
+            b[i] += calc_push(b[i], top, &center)
+                + calc_push(b[i], bottom, &center)
+                + calc_push(b[i], left, &center)
+                + calc_push(b[i], right, &center);
         }
         out = b;
         count += 1;
-        if count > 4 {
-            break;
-        }
+        break;
     }
     Rectangle::from(out)
 }
@@ -510,7 +517,7 @@ fn segment_available_locations(
     upper_side: &Road,
     context: &Context,
 ) -> Vec<Rectangle> {
-    prof_frame!("Road::segment_avaiable_locations()");
+    prof_frame!("Road::segment_available_locations()");
     let two = 2 as f64;
     let base = scale_rect_to_roads(
         &Rectangle {
@@ -524,7 +531,7 @@ fn segment_available_locations(
         &lower_side,
         &upper_side,
     );
-    if context.get_random_value(0, 100) < context.whole_block_buildings_percent {
+    if (context.get_random_float() * 100000.0) < context.whole_block_buildings_percent {
         return vec![base];
     }
     let v0 = base.v0;
@@ -570,7 +577,7 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
                 context,
             )
             .into_iter()
-            .map(|x| generate_building_from_rectangle(x.scale(0.9)))
+            .map(|x| generate_building_from_rectangle(x))
             .collect(),
         };
         out.push(tmp);

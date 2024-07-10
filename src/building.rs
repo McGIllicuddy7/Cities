@@ -1,4 +1,3 @@
-
 use crate::context::Context;
 use crate::math::*;
 use crate::prof_frame;
@@ -66,8 +65,8 @@ impl Building {
                 }
             }
         }
-        let rat = 3.0;
-        min / max > rat || max / min > rat || min < 5.0 || max < 5.0
+        let rat = 4.0;
+        min / max > rat || max / min > rat || min < 2.0 || max < 2.0
     }
     pub fn to_rect(&self) -> Rectangle {
         Rectangle {
@@ -120,16 +119,46 @@ pub fn generate_building_from_rectangle(rect: Rectangle) -> Building {
     }
 }
 
-pub fn generate_blocks(rings: &[road::Ring], context: &Context) -> Vec<Block> {
-    prof_frame!("Building::generate_blocks()");
-    let mut out = vec![];
-    for r in rings {
-        let tmp = road::ring_available_locations(r, context);
-        for t in tmp {
-            out.push(t);
+pub fn generate_blocks(rings: Vec<road::Ring>, context: &Context) -> Vec<Block> {
+    use std::sync::Arc;
+    use std::thread;
+    fn generation_thread(
+        rings_arc: Arc<Vec<road::Ring>>,
+        start: usize,
+        end: usize,
+        context_arc: Arc<Context>,
+    ) -> Vec<Block> {
+        let rings = &rings_arc;
+        let context = &context_arc;
+        let mut out = vec![];
+        for i in start..end {
+            out.push(road::ring_available_locations(&rings[i], context))
         }
+        out.into_iter().flatten().collect()
     }
-    out
+    prof_frame!("Building::generate_blocks()");
+    let l = rings.len();
+    let arc = Arc::new(rings);
+    let a0 = arc.clone();
+    let a1 = arc.clone();
+    let a2 = arc.clone();
+    let a3 = arc.clone();
+    let con = Arc::new(context.clone());
+    let c0 = con.clone();
+    let c1 = con.clone();
+    let c2 = con.clone();
+    let c3 = con.clone();
+    let t0 = thread::spawn(move || generation_thread(a0, 0, l / 4, c0));
+    let t1 = thread::spawn(move || generation_thread(a1, l / 4, 2 * l / 4, c1));
+    let t2 = thread::spawn(move || generation_thread(a2, 2 * l / 4, 3 * l / 4, c2));
+    let t3 = generation_thread(a3, 3 * l / 4, l, c3);
+    [
+        &t0.join().unwrap()[..],
+        &t1.join().unwrap()[..],
+        &t2.join().unwrap()[..],
+        &t3[..],
+    ]
+    .concat()
 }
 
 #[derive(Clone)]
@@ -137,6 +166,7 @@ pub struct Block {
     pub buildings: Vec<Building>,
 }
 impl Block {
+    #[allow(unused)]
     pub fn center_mass(&self) -> Vector2 {
         prof_frame!("Block::center_mass()");
         let mut out = vec2(0.0, 0.0);
@@ -145,6 +175,7 @@ impl Block {
         }
         out / (self.buildings.len() as f64)
     }
+    #[allow(unused)]
     pub fn distance_to_center(&self, context: &Context) -> f64 {
         distance(&self.center_mass(), &context.center())
     }
@@ -154,22 +185,6 @@ impl Block {
     }
 }
 
-pub fn filter_blocks(blocks: &[Block], context: &Context) -> Vec<Block> {
-    prof_frame!("Building::filter_blocks()");
-    let mut out = vec![];
-    let noise = NoiseGenerator2d::new(5, 1000.0, context);
-    for b in blocks {
-        let d = b.distance_to_center(context);
-        let r =
-            (noise.perlin(b.center_mass() - context.center()) * (context.width * 32) as f64).abs();
-        if d > r && r > (context.width / 4) as f64 {
-            continue;
-        }
-        out.push(b.clone());
-    }
-    out
-}
-
 pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) -> Vec<Building> {
     prof_frame!("Building::filter_buildings()");
     let mut out = vec![];
@@ -177,37 +192,46 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
         if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler {
             continue;
         }
-        out.push(b.clone()); 
+        if b.area() > 256.0 {
+            out.push(Building::from(b.to_rect().scale(0.9).as_array()));
+        } else {
+            out.push(b.clone());
+        }
     }
     out
 }
 
-fn exterminadus(buildings_arc:std::sync::Arc<[Building]>, start:usize, end:usize)->Vec<Building>{
+fn exterminadus(
+    buildings_arc: std::sync::Arc<[Building]>,
+    start: usize,
+    end: usize,
+) -> Vec<Building> {
     prof_frame!("Building::exterminadus()");
     let mut out = vec![];
-    let buildings = &buildings_arc;
-    for i in start..end{
+    let buildings: &[Building] = &buildings_arc;
+    for i in start..end {
         let mut overlaps = false;
-        for j in 0..buildings.len(){
-            if j == i{
+        for j in 0..buildings.len() {
+            if j == i {
                 continue;
             }
-            if rectangles_overlap(&buildings[i].to_rect(),&buildings[j].to_rect()){
-                if buildings[i].area()<buildings[j].area(){
+            if rectangles_overlap(&buildings[i].to_rect(), &buildings[j].to_rect()) {
+                if buildings[i].area() > buildings[j].area() {
                     overlaps = true;
                     break;
                 }
             }
         }
-        if !overlaps{
+        if !overlaps {
             out.push(buildings[i]);
         }
     }
     out
 }
+
 pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
-    use std::thread;
     use std::sync::Arc;
+    use std::thread;
     prof_frame!("Building::purge_degenerates()");
     let mut state0 = vec![];
     for b in buildings {
@@ -215,15 +239,24 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
             state0.push(b.clone());
         }
     }
-    let s:Arc<[Building]> = state0.into();
+    return state0;
+    let s: Arc<[Building]> = state0.into();
     let s0 = s.clone();
     let s1 = s.clone();
     let s2 = s.clone();
     let s3 = s.clone();
     let l = s.len();
-    let t0 = thread::spawn(move ||(exterminadus(s0, 0,l/4)));
-    let t1 = thread::spawn(move ||(exterminadus(s1, l/4, l/2)));
-    let t2 = thread::spawn(move ||(exterminadus(s2,l/2, 3*l/4)));
-    let t3 = exterminadus(s3, 3*l/4,l);
-    vec![t0.join().unwrap(),t1.join().unwrap(), t2.join().unwrap(), t3].into_iter().flatten().collect()
+    let t0 = thread::spawn(move || (exterminadus(s0, 0, l / 4)));
+    let t1 = thread::spawn(move || (exterminadus(s1, l / 4, l / 2)));
+    let t2 = thread::spawn(move || (exterminadus(s2, l / 2, 3 * l / 4)));
+    let t3 = exterminadus(s3, 3 * l / 4, l);
+    vec![
+        t0.join().unwrap(),
+        t1.join().unwrap(),
+        t2.join().unwrap(),
+        t3,
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
 }
