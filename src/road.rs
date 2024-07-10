@@ -409,10 +409,10 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.9 || i % 4 == 0 {
-                context.large_width
+            if context.get_random_float() > 0.9 || i % 2 == 0 {
+                context.large_width * 4.0
             } else {
-                context.small_width
+                context.small_width * 4.0
             }
         };
         let tmp = generate_ring(
@@ -461,23 +461,33 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
 //calculates new position so that point isn't in road
 fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
     prof_frame!("Road::calc_push()");
-    if road.distance_to(point) > (*road).width {
-        return vec2(0.0, 0.0);
-    }
-    let mut p = road.get_nearest_point_continuous(point);
-    let dp = normalize(&(point - p));
-    let dc = normalize(&(center - p));
-    let point = {
-        if dot(&dp, &dc) < 0.0 {
-            point
-        } else {
-            point - 2.0 * (point - p)
+    for i in 0..road.points.len() {
+        if distance(&road.points[i], &point) < 2.0 {
+            let j = {
+                if i == 0 {
+                    road.points.len() - 1
+                } else {
+                    i - 1
+                }
+            };
+            let v = normalize(
+                &(road.points[(j) % road.points.len()] + road.points[(i + 1) % road.points.len()]
+                    - 2.0 * road.points[i]),
+            );
+            let rv = rotate_vec2(&v, 90.0);
+            let dp = normalize(&(center - point));
+            let vec = {
+                let dt = dot(&rv, &dp);
+                if dt > 0.0 {
+                    rv
+                } else {
+                    -rv
+                }
+            };
+            return vec * road.width;
         }
-    };
-    let norm = road.get_normal_at_location_toward(p, *center);
-    let base_dist = distance(&point, &center);
-    let dist = road.width - (distance(&point, &p));
-    return norm * dist;
+    }
+    vec2(0.0, 0.0)
 }
 
 #[allow(unused)]
@@ -497,10 +507,10 @@ fn scale_rect_to_roads(
     loop {
         let mut b = out;
         for i in 0..4 {
-            b[i] += calc_push(b[i], top, &center)
-                + calc_push(b[i], bottom, &center)
-                + calc_push(b[i], left, &center)
-                + calc_push(b[i], right, &center);
+            b[i] += calc_push(b[i], left, &center);
+            b[i] += calc_push(b[i], right, &center);
+            b[i] += calc_push(b[i], top, &center);
+            b[i] += calc_push(b[i], bottom, &center);
         }
         out = b;
         count += 1;

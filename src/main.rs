@@ -8,7 +8,7 @@ mod road;
 
 pub fn main() {
     let t = private_profile_start("main");
-    let context = crate::context::Context::new(1000, 1000, 0.85, 0.85, 1.0, 2.0, 8.0, 24.0);
+    let context = crate::context::Context::new(1000, 1000, 0.85, 0.85, 1.0, 2.0, 4.0, 8.0);
     let c = city::City::new(1.5, &context);
     println!("profile finished\n");
     drop(t);

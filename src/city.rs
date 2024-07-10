@@ -15,7 +15,7 @@ impl City {
     #[allow(unused)]
     pub fn new(scaler: f64, context: &Context) -> Self {
         prof_frame!("City::new()");
-        let radius = 500.0 * scaler;
+        let radius = 510.0 * scaler;
         let scale = 1.0 / scaler;
         let rings = road::generate_ring_system(radius, context);
         let roads = road::collect_rings_to_roads(&rings);

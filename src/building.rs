@@ -239,7 +239,6 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
             state0.push(b.clone());
         }
     }
-    return state0;
     let s: Arc<[Building]> = state0.into();
     let s0 = s.clone();
     let s1 = s.clone();
