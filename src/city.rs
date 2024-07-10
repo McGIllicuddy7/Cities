@@ -55,14 +55,14 @@ impl City {
         };
         let center = vec2(context.width as f64 / 2_f64, context.height as f64 / 2_f64);
         for r in &self.roads {
-            let mut tmp = Road {
-                points: vec![],
-                width: r.width * scaler,
-            };
+            let mut tmp = Road::new(&[],r.width * scaler);
+            let mut i = 0;
             for v in &r.points {
                 let dv = v - center;
                 let nw = dv * scaler + center;
                 tmp.points.push(nw);
+                tmp.point_index_map.insert((nw.x.round() as i64, nw.y.round() as i64), i);
+                i +=1;
             }
             out.roads.push(tmp);
         }

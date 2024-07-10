@@ -8,11 +8,12 @@ use crate::prof_frame;
 use std::f64::consts::PI;
 #[allow(unused)]
 use std::f64::consts::TAU;
-
+use std::collections::hash_map::HashMap;
 #[allow(unused)]
 #[derive(Clone)]
 pub struct Road {
     pub points: Vec<Vector2>,
+    pub point_index_map:HashMap<(i64, i64), usize>,
     pub width: f64,
 }
 
@@ -21,10 +22,14 @@ impl Road {
     pub fn new(points: &[Vector2], width: f64) -> Self {
         prof_frame!("Road::new()");
         let mut v = vec![];
+        let mut map = HashMap::new();
+        let mut i = 0;
         for p in points {
             v.push(*p);
+            map.insert((p.x as i64, p.y as i64), i);
+            i += 1;
         }
-        Road { points: v, width }
+        Road { points: v, point_index_map:map,width }
     }
 
     #[allow(unused)]
@@ -213,76 +218,10 @@ impl Road {
             -normalize(&norm)
         }
     }
-}
-#[allow(unused)]
-fn single_road_gradient(road: &Road, location: Vector2) -> Vector2 {
-    let mu = 0.01;
-    let base = road.distance_to(location);
-    let partial_x = {
-        let delta = vec2(mu, 0.0);
-        let test_location0 = location + delta;
-        let test_location1 = location - delta;
-        let gradient_x_0 = base - road.distance_to(test_location0);
-        let gradient_x_1 = base - road.distance_to(test_location1);
-        vec2((gradient_x_0 - gradient_x_1) / mu, 0.0)
-    };
-    let partial_y = {
-        let delta = vec2(0.0, mu);
-        let test_location0 = location + delta;
-        let test_location1 = location - delta;
-        let gradient_y_0 = base - road.distance_to(test_location0);
-        let gradient_y_1 = base - road.distance_to(test_location1);
-        vec2(0.0, (gradient_y_0 - gradient_y_1) / mu)
-    };
-    partial_x + partial_y
-}
-
-#[allow(unused)]
-fn single_road_gradient_clamped(road: &Road, location: Vector2, radius: f64) -> Vector2 {
-    let mu = 0.01;
-    let base = road.distance_to(location);
-    if base > radius {
-        return vec2(0.0, 0.0);
+    pub fn get_point_idx(&self,v:Vector2)->Option<usize>{
+        let p:(i64,i64) = (v.x.round() as i64, v.y.round() as i64);
+        self.point_index_map.get(&p).map(|i| *i)
     }
-    let partial_x = {
-        let delta = vec2(mu, 0.0);
-        let test_location0 = location + delta;
-        let test_location1 = location - delta;
-        let gradient_x_0 = base - road.distance_to(test_location0);
-        let gradient_x_1 = base - road.distance_to(test_location1);
-        vec2((gradient_x_0 - gradient_x_1) / mu, 0.0)
-    };
-    let partial_y = {
-        let delta = vec2(0.0, mu);
-        let test_location0 = location + delta;
-        let test_location1 = location - delta;
-        let gradient_y_0 = base - road.distance_to(test_location0);
-        let gradient_y_1 = base - road.distance_to(test_location1);
-        vec2(0.0, (gradient_y_0 - gradient_y_1) / mu)
-    };
-    partial_x + partial_y
-}
-
-#[allow(unused)]
-pub fn road_gradient(roads: &[Road], location: Vector2) -> Vector2 {
-    let mut out = vec2(0.0, 0.0);
-    for r in roads {
-        out += single_road_gradient(r, location);
-    }
-    1.0 * out
-}
-
-#[allow(unused)]
-pub fn road_gradient_clamped(roads: &[Road], location: Vector2, radius: f64) -> Vector2 {
-    let mut out = vec2(0.0, 0.0);
-    if roads.is_empty() {
-        return vec2(0.0, 0.0);
-    }
-    for i in 0..roads.len() - 1 {
-        let r = &roads[i];
-        out += single_road_gradient_clamped(r, location, radius);
-    }
-    1.0 * out
 }
 
 #[allow(unused)]
@@ -329,7 +268,7 @@ fn generate_ring(
         points.push(p);
     }
     points.push(points[0]);
-    Road { points, width }
+    Road::new( &points, width )
 }
 
 #[allow(unused)]
@@ -337,7 +276,7 @@ fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
     prof_frame!("Road::link_points_with_road()");
     let mid = (v0 + v1) / 2_f64;
     let points = vec![v1, mid, v0];
-    return Road { points, width };
+    Road::new( &points, width )
 }
 
 #[allow(unused)]
@@ -410,9 +349,9 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
         let radius = i as f64 * dradius;
         let ring_width = {
             if context.get_random_float() > 0.9 || i % 2 == 0 {
-                context.large_width * 4.0
+                context.large_width * 1.0
             } else {
-                context.small_width * 4.0
+                context.small_width * 1.0
             }
         };
         let tmp = generate_ring(
@@ -461,33 +400,32 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
 //calculates new position so that point isn't in road
 fn calc_push(point: Vector2, road: &Road, center: &Vector2) -> Vector2 {
     prof_frame!("Road::calc_push()");
-    for i in 0..road.points.len() {
-        if distance(&road.points[i], &point) < 2.0 {
-            let j = {
-                if i == 0 {
-                    road.points.len() - 1
-                } else {
-                    i - 1
-                }
-            };
-            let v = normalize(
-                &(road.points[(j) % road.points.len()] + road.points[(i + 1) % road.points.len()]
-                    - 2.0 * road.points[i]),
-            );
-            let rv = rotate_vec2(&v, 90.0);
-            let dp = normalize(&(center - point));
-            let vec = {
-                let dt = dot(&rv, &dp);
-                if dt > 0.0 {
-                    rv
-                } else {
-                    -rv
-                }
-            };
-            return vec * road.width;
-        }
+    let opt_i = road.get_point_idx(point); 
+    if opt_i.is_none(){
+        return vec2(0.0, 0.0);
     }
-    vec2(0.0, 0.0)
+    let i = opt_i.unwrap(); 
+    let j = {
+        if i == 0 {
+            road.points.len() - 1
+        } else {
+            i - 1
+        }
+    };
+    let v = normalize(&(road.points[(j) % road.points.len()] + road.points[(i + 1) % road.points.len()] - 2.0 * road.points[i]),
+    );
+    let rv = rotate_vec2(&v, 90.0);
+    let dp = normalize(&(center - point));
+    let vec = {
+        let dt = dot(&rv, &dp);
+        if dt > 0.0 {
+            rv
+        } else {
+            -rv
+        }
+    };
+    println!("didn't return 0");
+    return vec * road.width*1.0;
 }
 
 #[allow(unused)]
@@ -499,7 +437,7 @@ fn scale_rect_to_roads(
     right: &Road,
 ) -> Rectangle {
     prof_frame!("Road::scale_rect_to_roads()");
-    let s = base;
+    let s = base.scale(1.0);
     let a = s.as_array();
     let center = s.center();
     let mut out = a;
@@ -507,10 +445,11 @@ fn scale_rect_to_roads(
     loop {
         let mut b = out;
         for i in 0..4 {
-            b[i] += calc_push(b[i], left, &center);
-            b[i] += calc_push(b[i], right, &center);
             b[i] += calc_push(b[i], top, &center);
             b[i] += calc_push(b[i], bottom, &center);
+            b[i] += calc_push(b[i], left, &center);
+            b[i] += calc_push(b[i], right, &center);
+
         }
         out = b;
         count += 1;

@@ -192,7 +192,7 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
         if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler {
             continue;
         }
-        if b.area() > 256.0 {
+        if b.area() > 1000.0 {
             out.push(Building::from(b.to_rect().scale(0.9).as_array()));
         } else {
             out.push(b.clone());

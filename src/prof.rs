@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
-use std::thread::{Thread, ThreadId};
+use std::thread::ThreadId;
 use std::time;
 #[allow(unused)]
 ////
