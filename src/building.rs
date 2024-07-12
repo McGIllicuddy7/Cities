@@ -49,24 +49,12 @@ impl Building {
     fn is_degenerate(&self) -> bool {
         prof_frame!("Building::is_degenerate()");
         let p = self.into();
-        let mut min = 1000 as f64;
-        let mut max = 0 as f64;
-        for i in 0..p.len() {
-            for j in 0..p.len() {
-                if i == j {
-                    continue;
-                }
-                let d = distance(&p[i], &p[j]);
-                if d < min {
-                    min = d;
-                }
-                if d > max {
-                    max = d;
-                }
-            }
-        }
-        let rat = 4.0;
-        min / max > rat || max / min > rat || min < 2.0 || max < 2.0
+        let d1 = distance(&p[0], &p[1]);
+        let d2 =  distance(&p[0], &p[2]);
+        let d3 = distance(&p[0], &p[3]);
+        let e1 = distance(&p[3], &p[1]);
+        let e2 = distance(&p[3], &p[2]);
+        d1<d3 && d2 <d3 && e1<d3 && e2<d3
     }
     pub fn to_rect(&self) -> Rectangle {
         Rectangle {
