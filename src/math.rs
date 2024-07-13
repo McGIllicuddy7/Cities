@@ -163,6 +163,34 @@ impl Rectangle {
     pub fn center(&self) -> Vector2 {
         (self.v0 + self.v1 + self.v2 + self.v3) / 4_f64
     }
+    pub fn area(&self) ->f64{
+     let points = self.as_array();
+        let mut max = 0.0;
+        for i in 0..4 {
+            for j in 0..4 {
+                if j == i {
+                    continue;
+                }
+                let d = distance(&points[i], &points[j]);
+                if d > max {
+                    max = d;
+                }
+            }
+        }
+        let mut min = max;
+        for i in 0..4 {
+            for j in 0..4 {
+                if j == i {
+                    continue;
+                }
+                let d = distance(&points[i], &points[j]);
+                if d < min {
+                    min = d;
+                }
+            }
+        }
+        return max * min;
+    }
 }
 //https://stackoverflow.com/questions/2049582/how-to-determine-if-a-point-is-in-a-2d-triangle
 #[allow(unused)]

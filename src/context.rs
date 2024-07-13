@@ -39,7 +39,7 @@ impl Context {
         (rand::random::<isize>() % (maximum as isize - minimum as isize) + minimum as isize) as i32
     }
     pub fn get_random_float(&self) -> f64 {
-        self.get_random_value(0, 100_000_000) as f64 / 100_000_000 as f64
+        self.get_random_value(0, 100_000) as f64 / 100_000 as f64
     }
     #[allow(unused)]
     pub fn get_random_vector(&self) -> Vector2 {

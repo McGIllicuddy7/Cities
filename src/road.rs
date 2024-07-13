@@ -189,7 +189,6 @@ impl Road {
             }
         }
         if (!found) {
-            println!("not found\n");
             return vec2(0.0, 0.0);
         }
         let norm = if self.points[start_idx] == location {
@@ -226,7 +225,7 @@ impl Road {
         let p0 = self.get_nearest_point_continuous(a);
         let p1 = self.get_nearest_point_continuous(b);
         let v1 = normalize(&(a-p0));
-        let v2 = normalize(&(b-p0));
+        let v2 = normalize(&(b-p1));
         dot(&v1, &v2)>0.0
     }
 }
@@ -247,7 +246,7 @@ fn generate_ring(
     let circumference = 2.0 * PI * radius;
     let count = {
         let tmp_count = (circumference / resolution).floor()
-            + (context.get_random_float() * context.get_random_float() * 1.0).floor();
+            + (context.get_random_float() * context.get_random_float() *6.0).floor();
         if tmp_count < 4.0 {
             4.0
         } else {
@@ -264,12 +263,9 @@ fn generate_ring(
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
         let mut d_theta =
-            theta_noise.perlin(vec2(theta_0 * 16.0, theta_0 * 16.0)) *0.5 + (radius.sqrt() / 7.0);
-        if d_theta > 0.5 {
-            d_theta = 0.5;
-        }
+            theta_noise.perlin(vec2(min_r/1200.0, theta_0/8.0))* 4.0;
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 500.0, theta)) * 0.05
+        let rad = rad_noise.perlin(vec2(min_r / 1200.0, theta/8.0)) * 160.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
@@ -338,8 +334,8 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let disp = 10.0;
     let resolution = 50.0;
     let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
-    let theta_noise = NoiseGenerator2d::new(10, 500.0, context);
-    let rad_noise = NoiseGenerator2d::new(6, 500.0, context);
+    let theta_noise = NoiseGenerator2d::new(10, 250.0, context);
+    let rad_noise = NoiseGenerator2d::new(6, 250.0, context);
     let base = generate_ring(
         dradius / 2_f64,
         disp,
@@ -408,37 +404,70 @@ fn make_new_location_make_sense(vc:Vector2,guess:Vector2, center:Vector2, road1:
         if road1.are_on_same_side_of(guess+v, center) && road2.are_on_same_side_of(guess+v, center){
             return v;
         }
+        if road1.are_on_same_side_of(guess+2.0*v, center) && road2.are_on_same_side_of(guess+2.0*v, center){
+            return 2.0*v;
+        }
+
+
     }else {
         v = -v;
         if road1.are_on_same_side_of(guess+v, center) && road2.are_on_same_side_of(guess+v, center){
             return v;
         }
-    }
-    let mut out = guess;
-    let mut lp = 0.1;
-    while !road1.are_on_same_side_of(out+v, center) || !road2.are_on_same_side_of(out+v, center){
-        out = center*lp+guess*(1.0-lp);
-        lp += 0.1;
-        if lp>=1.0{
-            println!("failed\n");
-            return vec2(0.0, 0.0);
+        if road1.are_on_same_side_of(guess+2.0*v, center) && road2.are_on_same_side_of(guess+2.0*v, center){
+            return 2.0*v;
         }
     }
-    return out-guess;
+    return vec2(0.0, 0.0);
 }
 #[allow(unused)]
 fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, guess:Vector2)->Vector2{
+    let nearest_idx = {
+        let mut min_idx = 0;
+        let mut min_dist = roads[0].distance_to(rect[idx]);
+        for i in 0..4{
+            let dist = roads[i].distance_to(rect[idx]);
+            if dist<min_dist{
+                min_idx = i;
+                min_dist = dist;
+            }
+        } 
+        min_idx
+    };
+    let second_nearest_idx = {
+        let mut min_idx = (nearest_idx+1)%4;
+        let mut min_dist = roads[min_idx].distance_to(rect[idx]);
+        for i in 0..4{
+            if i == nearest_idx{
+                continue;
+            }
+            let dist = roads[i].distance_to(rect[idx]);
+            if dist<min_dist{
+                min_idx = i;
+                min_dist = dist;
+            }
+        }
+        min_idx
+    };
+    let n0 = &roads[nearest_idx];
+    let n1 = &roads[second_nearest_idx];
+    let w = if n0.width<n1.width{
+        n0.width
+    } else{
+        n1.width
+    };
+    let failsafe = normalize(&(center-rect[idx]))*w;
     let road1_idx_opt= {
         let mut tmp = None;
         for i in 0..4{
-            if let Some(p) = roads[i].get_point_idx(rect[i]){
+            if let Some(p) = roads[i].get_point_idx(rect[idx]){
                 tmp = Some(i)
             }
         }
         tmp
     };
     if road1_idx_opt.is_none(){
-        return vec2(0.0, 0.0);
+        return failsafe;
     }
     let road1_idx = road1_idx_opt.unwrap();
     let road2_idx_opt = {
@@ -447,14 +476,14 @@ fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, 
             if i == road1_idx{
                 continue;
             }
-            if let Some(p) = roads[i].get_point_idx(rect[i]){
+            if let Some(p) = roads[i].get_point_idx(rect[idx]){
                 tmp = Some(i)
             }
         }
         tmp
     };
     if road2_idx_opt.is_none(){
-        return vec2(0.0, 0.0);
+        return failsafe;
     }
     let road2_idx = road2_idx_opt.unwrap();
     let road1 = &roads[road1_idx];
@@ -472,7 +501,7 @@ fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, 
         tmp
     };
     if road1_other_opt.is_none(){
-        return vec2(0.0, 0.0);
+        return failsafe;
     }
     let road1_other = road1_other_opt.unwrap();
     let road2_other_opt = {
@@ -488,7 +517,7 @@ fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, 
         tmp
     };
     if road2_other_opt.is_none(){
-        return vec2(0.0, 0.0);
+        return failsafe;
     }
     let road2_other = road2_other_opt.unwrap();
     let r1nxt = {
@@ -546,6 +575,7 @@ fn scale_rect_to_roads(
     bottom: &Road,
     left: &Road,
     right: &Road,
+    noise:&NoiseGenerator2d
 ) -> Rectangle {
     prof_frame!("Road::scale_rect_to_roads()");
     let s = base.scale(1.0);
@@ -562,7 +592,7 @@ fn scale_rect_to_roads(
         count += 1;
         break;
     }
-    Rectangle::from(out)
+    Rectangle::from(out).scale(noise.perlin(Rectangle::from(out).center()))
 }
 
 #[allow(unused)]
@@ -571,6 +601,7 @@ fn segment_available_locations(
     outer: &Road,
     lower_side: &Road,
     upper_side: &Road,
+    noise:&NoiseGenerator2d,
     context: &Context,
 ) -> Vec<Rectangle> {
     prof_frame!("Road::segment_available_locations()");
@@ -586,18 +617,26 @@ fn segment_available_locations(
         &inner,
         &lower_side,
         &upper_side,
+        noise,
     );
-    if (context.get_random_float() * 100000.0) < context.whole_block_buildings_percent {
-        return vec![base];
-    }
     let v0 = base.v0;
     let v1 = base.v1;
     let v2 = base.v2;
     let v3 = base.v3;
     let bmid = (v0 + v1) / two;
+    let idx0opt = outer.point_index(upper_side.get_end());
+    if idx0opt.is_none(){
+        return vec![];
+    }
+    let idx0 = idx0opt.unwrap();
+    let idx1opt = outer.point_index(lower_side.get_end());
+    if idx1opt.is_none(){
+        return vec![];
+    }
+    let idx1 = idx1opt.unwrap();
     let tmid = {
-        let idx = (outer.point_index(upper_side.get_end()).unwrap() + 1) % outer.points.len();
-        let idx2 = outer.point_index(lower_side.get_end()).unwrap();
+        let idx = ( idx0+ 1) % outer.points.len();
+        let idx2 = idx1;
         if idx2 != idx {
             outer.points[idx]
         } else {
@@ -617,7 +656,7 @@ fn segment_available_locations(
 }
 
 #[allow(unused)]
-pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
+pub fn ring_available_locations(ring: &Ring, noise:&NoiseGenerator2d,context: &Context) -> Vec<Block> {
     prof_frame!("Road::ring_available_locations()");
     let mut out = vec![];
     let inner = &ring.inner;
@@ -630,6 +669,7 @@ pub fn ring_available_locations(ring: &Ring, context: &Context) -> Vec<Block> {
                 outer,
                 &ring.spines[(i + 1) % len],
                 &ring.spines[i],
+                noise,
                 context,
             )
             .into_iter()
