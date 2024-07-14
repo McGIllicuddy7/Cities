@@ -1,5 +1,6 @@
 use crate::math::*;
 #[derive(Clone)]
+#[allow(unused)]
 pub struct Context {
     pub height: i32,
     pub width: i32,

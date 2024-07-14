@@ -163,8 +163,9 @@ impl Rectangle {
     pub fn center(&self) -> Vector2 {
         (self.v0 + self.v1 + self.v2 + self.v3) / 4_f64
     }
-    pub fn area(&self) ->f64{
-     let points = self.as_array();
+    #[allow(unused)]
+    pub fn area(&self) -> f64 {
+        let points = self.as_array();
         let mut max = 0.0;
         for i in 0..4 {
             for j in 0..4 {
@@ -282,28 +283,39 @@ pub fn interpolate(a0: f64, a1: f64, w: f64) -> f64 {
 }
 #[allow(unused)]
 struct NoiseOctave2d {
-    points: Vec<Vec<Vector2>>,
+    v0: i64,
+    v1: i64,
+    v2: i64,
     scale_divisor: f64,
 }
 //based on https://en.wikipedia.org/wiki/Perlin_noise
 impl NoiseOctave2d {
     pub fn new(context: &Context, scale_divisor: f64) -> Self {
         prof_frame!("NoiseOctave2d::new()");
-        let mut points = vec![];
-        for _ in 0..128 {
-            let mut tmp = vec![];
-            for _ in 0..128 {
-                tmp.push(context.get_random_vector());
-            }
-            points.push(tmp);
-        }
+        let v0 = context.get_random_value(0, 1_000_000_000) as i64;
+        let v1 = context.get_random_value(0, 1_000_000_000) as i64;
+        let v2 = context.get_random_value(0, 1_000_000_000) as i64;
         Self {
-            points,
+            v0,
+            v1,
+            v2,
             scale_divisor,
         }
     }
+    #[allow(arithmetic_overflow)]
     fn random_gradient(&self, x: i32, y: i32) -> Vector2 {
-        return self.points[y as usize % self.points.len()][x as usize % self.points.len()];
+        let w: u64 = 64;
+        let s = w / 2;
+        let mut a = x as i64;
+        let mut b = y as i64;
+        a *= self.v0;
+        b ^= a << s | a >> w - s;
+        b *= self.v1;
+        a &= b << s | b >> w - s;
+        a *= self.v2;
+        let random = a as f64 * (3.14159265 / (!(!0_u64 >> 1)) as f64);
+        return vec2(random.cos(), random.sin());
+        //return self.points[y as usize % self.points.len()][x as usize % self.points.len()];
     }
     fn dot_grid_gradient(&self, ix: i32, iy: i32, x: f64, y: f64) -> f64 {
         let gradient = self.random_gradient(ix, iy);
@@ -359,5 +371,74 @@ impl NoiseGenerator2d {
             scaler *= 2.0;
         }
         out / div
+    }
+}
+
+#[allow(unused)]
+pub struct HashGrid<T: Clone + PartialEq> {
+    min_x: f64,
+    min_y: f64,
+    max_x: f64,
+    max_y: f64,
+    dim: usize,
+    values: Vec<Vec<T>>,
+}
+impl<T: Clone + PartialEq> HashGrid<T> {
+    #[allow(unused)]
+    pub fn new(points: &[(f64, f64, T)], dim: usize) -> Self {
+        let mut min_x = points[0].0;
+        let mut max_x = min_x;
+        let mut min_y = points[0].1;
+        let mut max_y = min_y;
+        let mut values: Vec<Vec<T>> = vec![];
+        for i in 0..dim * dim {
+            values.push(Vec::new());
+        }
+        for p in points {
+            if p.0 < min_x {
+                min_x = p.0;
+            }
+            if p.0 > max_x {
+                max_x = p.0;
+            }
+            if p.1 < min_y {
+                min_y = p.1;
+            }
+            if p.1 > max_y {
+                max_y = p.1;
+            }
+        }
+        for p in points {
+            let x = ((p.0 - min_x) / (max_x - min_x)).floor() as usize;
+            let y = ((p.1 - min_y) / (max_y - min_y)).floor() as usize;
+            let idx = y * dim + x;
+            let contains = {
+                let mut tmp = false;
+                for i in &values[idx] {
+                    if *i == p.2 {
+                        tmp = true;
+                        break;
+                    }
+                }
+                tmp
+            };
+            if !contains {
+                values[idx].push(p.2.clone());
+            }
+        }
+        Self {
+            min_x,
+            min_y,
+            max_x,
+            max_y,
+            dim,
+            values,
+        }
+    }
+    #[allow(unused)]
+    pub fn get(&self, point: (f64, f64)) -> &Vec<T> {
+        let x = ((point.0 - self.min_x) / (self.max_x - self.min_x)).floor() as usize;
+        let y = ((point.1 - self.min_y) / (self.max_y - self.min_y)).floor() as usize;
+        return &self.values[y * self.dim + x];
     }
 }

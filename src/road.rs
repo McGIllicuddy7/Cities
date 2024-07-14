@@ -4,16 +4,16 @@ use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
 use crate::prof_frame;
+use std::collections::hash_map::HashMap;
 #[allow(unused)]
 use std::f64::consts::PI;
 #[allow(unused)]
 use std::f64::consts::TAU;
-use std::collections::hash_map::HashMap;
 #[allow(unused)]
 #[derive(Clone)]
 pub struct Road {
     pub points: Vec<Vector2>,
-    pub point_index_map:HashMap<(i64, i64), usize>,
+    pub point_index_map: HashMap<(i64, i64), usize>,
     pub width: f64,
 }
 
@@ -29,7 +29,11 @@ impl Road {
             map.insert((p.x as i64, p.y as i64), i);
             i += 1;
         }
-        Road { points: v, point_index_map:map,width }
+        Road {
+            points: v,
+            point_index_map: map,
+            width,
+        }
     }
 
     #[allow(unused)]
@@ -217,16 +221,16 @@ impl Road {
             -normalize(&norm)
         }
     }
-    pub fn get_point_idx(&self,v:Vector2)->Option<usize>{
-        let p:(i64,i64) = (v.x.round() as i64, v.y.round() as i64);
+    pub fn get_point_idx(&self, v: Vector2) -> Option<usize> {
+        let p: (i64, i64) = (v.x.round() as i64, v.y.round() as i64);
         self.point_index_map.get(&p).map(|i| *i)
     }
-    pub fn are_on_same_side_of(&self, a:Vector2, b:Vector2)->bool{
+    pub fn are_on_same_side_of(&self, a: Vector2, b: Vector2) -> bool {
         let p0 = self.get_nearest_point_continuous(a);
         let p1 = self.get_nearest_point_continuous(b);
-        let v1 = normalize(&(a-p0));
-        let v2 = normalize(&(b-p1));
-        dot(&v1, &v2)>0.0
+        let v1 = normalize(&(a - p0));
+        let v2 = normalize(&(b - p1));
+        dot(&v1, &v2) > 0.0
     }
 }
 
@@ -246,14 +250,14 @@ fn generate_ring(
     let circumference = 2.0 * PI * radius;
     let count = {
         let tmp_count = (circumference / resolution).floor()
-            + (context.get_random_float() * context.get_random_float() *6.0).floor();
+            + (context.get_random_float() * context.get_random_float() * 6.0).floor();
         if tmp_count < 4.0 {
             4.0
         } else {
             tmp_count
         }
     };
-    let min_r = radius-disp;
+    let min_r = radius - disp;
     let max_r = radius + disp;
     let theta_disp = TAU / count;
     let theta_offset = (PI / count * 2.0).round() as i32;
@@ -262,16 +266,15 @@ fn generate_ring(
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta =
-            theta_noise.perlin(vec2(min_r/1200.0, theta_0/8.0))* 4.0;
+        let mut d_theta = theta_noise.perlin(vec2(min_r / 1200.0, theta_0 / 8.0)) * 4.0;
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 1200.0, theta/8.0)) * 160.0
+        let rad = rad_noise.perlin(vec2(min_r / 1200.0, theta / 8.0)) * 160.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
     }
     points.push(points[0]);
-    Road::new( &points, width )
+    Road::new(&points, width)
 }
 
 #[allow(unused)]
@@ -279,7 +282,7 @@ fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
     prof_frame!("Road::link_points_with_road()");
     let mid = (v0 + v1) / 2_f64;
     let points = vec![v1, mid, v0];
-    Road::new( &points, width )
+    Road::new(&points, width)
 }
 
 #[allow(unused)]
@@ -398,51 +401,69 @@ pub fn collect_rings_to_roads(rings: &Vec<Ring>) -> Vec<Road> {
     }
     out
 }
-fn make_new_location_make_sense(vc:Vector2,guess:Vector2, center:Vector2, road1:&Road, road2:&Road)->Vector2{
+fn make_new_location_make_sense(
+    vc: Vector2,
+    guess: Vector2,
+    center: Vector2,
+    road1: &Road,
+    road2: &Road,
+) -> Vector2 {
     let mut v = vc;
-    if distance(&(guess+v), &guess)< distance(&guess, &center){
-        if road1.are_on_same_side_of(guess+v, center) && road2.are_on_same_side_of(guess+v, center){
+    if distance(&(guess + v), &guess) < distance(&guess, &center) {
+        if road1.are_on_same_side_of(guess + v, center)
+            && road2.are_on_same_side_of(guess + v, center)
+        {
             return v;
         }
-        if road1.are_on_same_side_of(guess+2.0*v, center) && road2.are_on_same_side_of(guess+2.0*v, center){
-            return 2.0*v;
+        if road1.are_on_same_side_of(guess + 2.0 * v, center)
+            && road2.are_on_same_side_of(guess + 2.0 * v, center)
+        {
+            return 2.0 * v;
         }
-
-
-    }else {
+    } else {
         v = -v;
-        if road1.are_on_same_side_of(guess+v, center) && road2.are_on_same_side_of(guess+v, center){
+        if road1.are_on_same_side_of(guess + v, center)
+            && road2.are_on_same_side_of(guess + v, center)
+        {
             return v;
         }
-        if road1.are_on_same_side_of(guess+2.0*v, center) && road2.are_on_same_side_of(guess+2.0*v, center){
-            return 2.0*v;
+        if road1.are_on_same_side_of(guess + 2.0 * v, center)
+            && road2.are_on_same_side_of(guess + 2.0 * v, center)
+        {
+            return 2.0 * v;
         }
     }
     return vec2(0.0, 0.0);
 }
 #[allow(unused)]
-fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, guess:Vector2)->Vector2{
+fn calc_push_imp(
+    idx: usize,
+    rect: &[Vector2; 4],
+    roads: &[&Road; 4],
+    center: Vector2,
+    guess: Vector2,
+) -> Vector2 {
     let nearest_idx = {
         let mut min_idx = 0;
         let mut min_dist = roads[0].distance_to(rect[idx]);
-        for i in 0..4{
+        for i in 0..4 {
             let dist = roads[i].distance_to(rect[idx]);
-            if dist<min_dist{
+            if dist < min_dist {
                 min_idx = i;
                 min_dist = dist;
             }
-        } 
+        }
         min_idx
     };
     let second_nearest_idx = {
-        let mut min_idx = (nearest_idx+1)%4;
+        let mut min_idx = (nearest_idx + 1) % 4;
         let mut min_dist = roads[min_idx].distance_to(rect[idx]);
-        for i in 0..4{
-            if i == nearest_idx{
+        for i in 0..4 {
+            if i == nearest_idx {
                 continue;
             }
             let dist = roads[i].distance_to(rect[idx]);
-            if dist<min_dist{
+            if dist < min_dist {
                 min_idx = i;
                 min_dist = dist;
             }
@@ -451,38 +472,38 @@ fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, 
     };
     let n0 = &roads[nearest_idx];
     let n1 = &roads[second_nearest_idx];
-    let w = if n0.width<n1.width{
+    let w = if n0.width < n1.width {
         n0.width
-    } else{
+    } else {
         n1.width
     };
-    let failsafe = normalize(&(center-rect[idx]))*w;
-    let road1_idx_opt= {
+    let failsafe = normalize(&(center - rect[idx])) * w;
+    let road1_idx_opt = {
         let mut tmp = None;
-        for i in 0..4{
-            if let Some(p) = roads[i].get_point_idx(rect[idx]){
+        for i in 0..4 {
+            if let Some(p) = roads[i].get_point_idx(rect[idx]) {
                 tmp = Some(i)
             }
         }
         tmp
     };
-    if road1_idx_opt.is_none(){
+    if road1_idx_opt.is_none() {
         return failsafe;
     }
     let road1_idx = road1_idx_opt.unwrap();
     let road2_idx_opt = {
         let mut tmp = None;
-        for i in 0..4{
-            if i == road1_idx{
+        for i in 0..4 {
+            if i == road1_idx {
                 continue;
             }
-            if let Some(p) = roads[i].get_point_idx(rect[idx]){
+            if let Some(p) = roads[i].get_point_idx(rect[idx]) {
                 tmp = Some(i)
             }
         }
         tmp
     };
-    if road2_idx_opt.is_none(){
+    if road2_idx_opt.is_none() {
         return failsafe;
     }
     let road2_idx = road2_idx_opt.unwrap();
@@ -490,83 +511,81 @@ fn calc_push_imp(idx:usize,rect:&[Vector2;4], roads:&[&Road;4], center:Vector2, 
     let road2 = &roads[road2_idx];
     let road1_other_opt = {
         let mut tmp = None;
-        for i in 0..4{
-            if i == idx{
+        for i in 0..4 {
+            if i == idx {
                 continue;
             }
-            if let Some(p) = road1.get_point_idx(rect[i]){
+            if let Some(p) = road1.get_point_idx(rect[i]) {
                 tmp = Some(p);
             }
         }
         tmp
     };
-    if road1_other_opt.is_none(){
+    if road1_other_opt.is_none() {
         return failsafe;
     }
     let road1_other = road1_other_opt.unwrap();
     let road2_other_opt = {
         let mut tmp = None;
-        for i in 0..4{
-            if i == idx{
+        for i in 0..4 {
+            if i == idx {
                 continue;
             }
-            if let Some(p) = road2.get_point_idx(rect[i]){
+            if let Some(p) = road2.get_point_idx(rect[i]) {
                 tmp = Some(p);
             }
         }
         tmp
     };
-    if road2_other_opt.is_none(){
+    if road2_other_opt.is_none() {
         return failsafe;
     }
     let road2_other = road2_other_opt.unwrap();
     let r1nxt = {
-        if road1_other>road1_idx{
-            (road1_idx+1)%road1.points.len()
-        } else{
-            if road1_idx != 0{
-                (road1_idx-1)
-            } else{
-                (road1.points.len()-1)
+        if road1_other > road1_idx {
+            (road1_idx + 1) % road1.points.len()
+        } else {
+            if road1_idx != 0 {
+                (road1_idx - 1)
+            } else {
+                (road1.points.len() - 1)
             }
         }
     };
     let r2nxt = {
-        if road2_other>road2_idx{
-            (road2_idx+1)%road2.points.len()
-        } else{
-            if road2_idx != 0{
-                (road2_idx-1)
-            } else{
-                (road2.points.len()-1)
+        if road2_other > road2_idx {
+            (road2_idx + 1) % road2.points.len()
+        } else {
+            if road2_idx != 0 {
+                (road2_idx - 1)
+            } else {
+                (road2.points.len() - 1)
             }
         }
-
     };
     let r1p = road1.points[r1nxt];
     let r2p = road2.points[r2nxt];
-    let dp = normalize(&(rect[idx]-center));
+    let dp = normalize(&(rect[idx] - center));
     let r1v = {
-        let tmp = normalize(&(r1p-rect[idx]));
+        let tmp = normalize(&(r1p - rect[idx]));
         let rot = rotate_vec2(&tmp, 90.0);
-        if dot(&rot, &dp)<0.0{
-            -rot*road1.width
-        }else{
-            rot*road1.width
+        if dot(&rot, &dp) < 0.0 {
+            -rot * road1.width
+        } else {
+            rot * road1.width
         }
     };
     let r2v = {
-        let tmp = normalize(&(r2p-rect[idx]));
+        let tmp = normalize(&(r2p - rect[idx]));
         let rot = rotate_vec2(&tmp, 90.0);
-        if dot(&rot, &dp)<0.0{
-            -rot*road2.width
-        }else{
-            rot*road2.width
+        if dot(&rot, &dp) < 0.0 {
+            -rot * road2.width
+        } else {
+            rot * road2.width
         }
-
     };
-    let out = r1v+r2v;
-    return make_new_location_make_sense(out, guess,center, road1, road2);
+    let out = r1v + r2v;
+    return make_new_location_make_sense(out, guess, center, road1, road2);
 }
 #[allow(unused)]
 fn scale_rect_to_roads(
@@ -575,7 +594,7 @@ fn scale_rect_to_roads(
     bottom: &Road,
     left: &Road,
     right: &Road,
-    noise:&NoiseGenerator2d
+    noise: &NoiseGenerator2d,
 ) -> Rectangle {
     prof_frame!("Road::scale_rect_to_roads()");
     let s = base.scale(1.0);
@@ -585,14 +604,14 @@ fn scale_rect_to_roads(
     let mut count = 0;
     loop {
         let mut b = out;
-        for i in 0..4 { 
+        for i in 0..4 {
             b[i] += calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i]);
         }
         out = b;
         count += 1;
         break;
     }
-    Rectangle::from(out).scale(noise.perlin(Rectangle::from(out).center()))
+    Rectangle::from(out).scale(noise.perlin(Rectangle::from(out).center()) * 0.05 + 0.95)
 }
 
 #[allow(unused)]
@@ -601,7 +620,7 @@ fn segment_available_locations(
     outer: &Road,
     lower_side: &Road,
     upper_side: &Road,
-    noise:&NoiseGenerator2d,
+    noise: &NoiseGenerator2d,
     context: &Context,
 ) -> Vec<Rectangle> {
     prof_frame!("Road::segment_available_locations()");
@@ -625,17 +644,17 @@ fn segment_available_locations(
     let v3 = base.v3;
     let bmid = (v0 + v1) / two;
     let idx0opt = outer.point_index(upper_side.get_end());
-    if idx0opt.is_none(){
+    if idx0opt.is_none() {
         return vec![];
     }
     let idx0 = idx0opt.unwrap();
     let idx1opt = outer.point_index(lower_side.get_end());
-    if idx1opt.is_none(){
+    if idx1opt.is_none() {
         return vec![];
     }
     let idx1 = idx1opt.unwrap();
     let tmid = {
-        let idx = ( idx0+ 1) % outer.points.len();
+        let idx = (idx0 + 1) % outer.points.len();
         let idx2 = idx1;
         if idx2 != idx {
             outer.points[idx]
@@ -656,7 +675,11 @@ fn segment_available_locations(
 }
 
 #[allow(unused)]
-pub fn ring_available_locations(ring: &Ring, noise:&NoiseGenerator2d,context: &Context) -> Vec<Block> {
+pub fn ring_available_locations(
+    ring: &Ring,
+    noise: &NoiseGenerator2d,
+    context: &Context,
+) -> Vec<Block> {
     prof_frame!("Road::ring_available_locations()");
     let mut out = vec![];
     let inner = &ring.inner;

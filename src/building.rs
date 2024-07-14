@@ -2,7 +2,7 @@ use crate::context::Context;
 use crate::math::*;
 use crate::prof_frame;
 use crate::road;
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Building {
     pub p0: Vector2,
     pub p1: Vector2,
@@ -48,77 +48,76 @@ impl Building {
     }
     fn is_degenerate(&self) -> bool {
         prof_frame!("Building::is_degenerate()");
-        fn lrotate(points:[Vector2;4])->[Vector2;4]{
+        fn lrotate(points: [Vector2; 4]) -> [Vector2; 4] {
             [points[1], points[2], points[3], points[0]]
         }
-        fn is_degen_tmp(p:[Vector2;4])->bool{
-            if Building::from(p).area()<10.0{
+        fn is_degen_tmp(p: [Vector2; 4]) -> bool {
+            if Building::from(p).area() < 10.0 {
                 return true;
             }
             let d1 = distance(&p[0], &p[1]);
-            let d2 =  distance(&p[0], &p[2]);
+            let d2 = distance(&p[0], &p[2]);
             let d3 = distance(&p[0], &p[3]);
             let e1 = distance(&p[3], &p[1]);
             let e2 = distance(&p[3], &p[2]);
-            d1<=d3 && d2 <=d3 && e1<=d3 && e2<=d3
+            d1 <= d3 && d2 <= d3 && e1 <= d3 && e2 <= d3
         }
         let p0 = self.into();
-        for i in 0..4{
-            for j in 0..4{
-                if i!=j{
-                    if distance(&p0[i],&p0[j])<10.0{
+        for i in 0..4 {
+            for j in 0..4 {
+                if i != j {
+                    if distance(&p0[i], &p0[j]) < 10.0 {
                         return true;
                     }
                 }
             }
         }
-    
-        if !is_degen_tmp(p0){
+
+        if !is_degen_tmp(p0) {
             return false;
-        } 
+        }
         let p1 = lrotate(p0);
-        if !is_degen_tmp(p1){
+        if !is_degen_tmp(p1) {
             return false;
         }
         let p2 = lrotate(p1);
-        if !is_degen_tmp(p2){
+        if !is_degen_tmp(p2) {
             return false;
         }
         let p3 = lrotate(p2);
-        if !is_degen_tmp(p3){
+        if !is_degen_tmp(p3) {
             return false;
-
         }
         return true;
     }
-    fn i_fix_pls(&self)->Option<Self>{
+    fn i_fix_pls(&self) -> Option<Self> {
         let p = self.into();
         let d1 = distance(&p[0], &p[1]);
-        let d2 =  distance(&p[0], &p[2]);
+        let d2 = distance(&p[0], &p[2]);
         let d3 = distance(&p[0], &p[3]);
         let e1 = distance(&p[3], &p[1]);
         let e2 = distance(&p[3], &p[2]);
         let mut out = p.clone();
-        if d1>d3{
+        if d1 > d3 {
             out[0] = p[1];
             out[3] = p[0];
         }
-        if d2>d3{
+        if d2 > d3 {
             out[0] = p[2];
             out[3] = p[0];
         }
-        if e1>d3{
+        if e1 > d3 {
             out[3] = p[1];
             out[1] = p[3];
         }
-        if e2>d3{
-            out[3] =p[2];
-            out[2]  =p[3];
+        if e2 > d3 {
+            out[3] = p[2];
+            out[2] = p[3];
         }
         let out_a = Self::from(out);
-        if out_a.is_degenerate(){
+        if out_a.is_degenerate() {
             None
-        } else{
+        } else {
             Some(out_a)
         }
     }
@@ -180,7 +179,7 @@ pub fn generate_blocks(rings: Vec<road::Ring>, context: &Context) -> Vec<Block> 
         rings_arc: Arc<Vec<road::Ring>>,
         start: usize,
         end: usize,
-        noise_arc :Arc<NoiseGenerator2d>,
+        noise_arc: Arc<NoiseGenerator2d>,
         context_arc: Arc<Context>,
     ) -> Vec<Block> {
         let rings = &rings_arc;
@@ -188,7 +187,7 @@ pub fn generate_blocks(rings: Vec<road::Ring>, context: &Context) -> Vec<Block> 
         let noise = &noise_arc;
         let mut out = vec![];
         for i in start..end {
-            out.push(road::ring_available_locations(&rings[i],noise, context))
+            out.push(road::ring_available_locations(&rings[i], noise, context))
         }
         out.into_iter().flatten().collect()
     }
@@ -201,15 +200,19 @@ pub fn generate_blocks(rings: Vec<road::Ring>, context: &Context) -> Vec<Block> 
     let a1 = arc.clone();
     let a2 = arc.clone();
     let a3 = arc.clone();
+    let n0 = noise_arc.clone();
+    let n1 = noise_arc.clone();
+    let n2 = noise_arc.clone();
+    let n3 = noise_arc.clone();
     let con = Arc::new(context.clone());
     let c0 = con.clone();
     let c1 = con.clone();
     let c2 = con.clone();
     let c3 = con.clone();
-    let t0 = thread::spawn(move || generation_thread(a0, 0, l / 4, c0));
-    let t1 = thread::spawn(move || generation_thread(a1, l / 4, 2 * l / 4, c1));
-    let t2 = thread::spawn(move || generation_thread(a2, 2 * l / 4, 3 * l / 4, c2));
-    let t3 = generation_thread(a3, 3 * l / 4, l, c3);
+    let t0 = thread::spawn(move || generation_thread(a0, 0, l / 4, n0, c0));
+    let t1 = thread::spawn(move || generation_thread(a1, l / 4, 2 * l / 4, n1, c1));
+    let t2 = thread::spawn(move || generation_thread(a2, 2 * l / 4, 3 * l / 4, n2, c2));
+    let t3 = generation_thread(a3, 3 * l / 4, l, n3, c3);
     [
         &t0.join().unwrap()[..],
         &t1.join().unwrap()[..],
@@ -244,12 +247,16 @@ impl Block {
 }
 
 pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) -> Vec<Building> {
-    fn building_outside(b:&Building,scaler:f64, context:&Context)->bool{
+    fn building_outside(b: &Building, scaler: f64, context: &Context) -> bool {
         let mut outside = false;
         let a = b.to_rect().as_array();
-        for i in a{
-            if !((i.y>(context.height/2) as f64 -(context.height/2) as f64*scaler && i.y< (context.height) as f64* scaler) &&(i.x>(context.width/2) as f64 -(context.width/2) as f64*scaler  && i.x<(context.width) as f64 * scaler)){
-                outside= true;
+        for i in a {
+            if !((i.y > (context.height / 2) as f64 - (context.height / 2) as f64 * scaler
+                && i.y < (context.height) as f64 * scaler)
+                && (i.x > (context.width / 2) as f64 - (context.width / 2) as f64 * scaler
+                    && i.x < (context.width) as f64 * scaler))
+            {
+                outside = true;
                 break;
             }
         }
@@ -261,7 +268,7 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
         //if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler*2_f64.sqrt() {
         //    continue;
         //}
-        if building_outside(b,scaler, context){
+        if building_outside(b, scaler, context) {
             continue;
         }
         if b.area() > 1000.0 {
@@ -279,18 +286,30 @@ fn exterminadus(
     end: usize,
 ) -> Vec<Building> {
     prof_frame!("Building::exterminadus()");
-    let mut out = vec![];
     let buildings: &[Building] = &buildings_arc;
+    let mut v = vec![];
+    for b in buildings {
+        for i in b.to_rect().as_array() {
+            let t = (i.x, i.y, b);
+            v.push(t);
+        }
+    }
+    let map = HashGrid::new(&v, 100);
+    let mut out = vec![];
     for i in start..end {
         let mut overlaps = false;
-        for j in 0..buildings.len() {
-            if j == i {
-                continue;
-            }
-            if rectangles_overlap(&buildings[i].to_rect(), &buildings[j].to_rect()) {
-                if buildings[i].area() > buildings[j].area() {
-                    overlaps = true;
-                    break;
+        let points = buildings[i].to_rect().as_array();
+        for j in points {
+            let p = map.get((j.x, j.y));
+            for k in p {
+                if buildings[i] == **k {
+                    continue;
+                }
+                if rectangles_overlap(&buildings[i].to_rect(), &k.to_rect()) {
+                    if buildings[i].area() > k.area() {
+                        overlaps = true;
+                        break;
+                    }
                 }
             }
         }
@@ -309,12 +328,13 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
     for b in buildings {
         if !b.is_degenerate() {
             state0.push(b.clone());
-        } else{
-            if let Some(p) = b.i_fix_pls(){
+        } else {
+            if let Some(p) = b.i_fix_pls() {
                 state0.push(p);
             }
         }
-    } 
+    }
+
     let s: Arc<[Building]> = state0.into();
     let s0 = s.clone();
     let s1 = s.clone();
