@@ -4,6 +4,24 @@ use crate::context::*;
 use crate::prof_frame;
 pub type Vector2 = TVec2<f64>;
 #[allow(unused)]
+pub fn max<T>(a:T, b:T)->T
+where T:PartialOrd{
+    if a>b{
+        a
+    } else{
+        b
+    }
+}
+#[allow(unused)]
+pub fn min<T>(a:T, b:T)->T
+where T:PartialOrd{
+    if a>b{
+        b
+    } else{
+        a
+    }
+}
+#[allow(unused)]
 pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vector2 {
     //prof_frame!("math::project_vector2_line");
     if end == start {
@@ -40,7 +58,7 @@ pub fn is_between_points(point: Vector2, start: Vector2, end: Vector2) -> bool {
 }
 #[allow(unused)]
 pub fn dist_point_to_line(point: Vector2, start: Vector2, end: Vector2) -> f64 {
-    prof_frame!("math::distance_point_to_line");
+    //prof_frame!("math::distance_point_to_line");
     let proj = project_vector2_line(point, start, end);
     let btwn = is_between_points(proj, start, end);
     if btwn {
@@ -57,7 +75,7 @@ pub fn dist_point_to_line(point: Vector2, start: Vector2, end: Vector2) -> f64 {
 }
 #[allow(unused)]
 pub fn nearest_point_on_line_segment(point: Vector2, start: Vector2, end: Vector2) -> Vector2 {
-    prof_frame!("math::nearest_point_on_line_segment");
+    //prof_frame!("math::nearest_point_on_line_segment");
     let proj = project_vector2_line(point, start, end);
     let btwn = is_between_points(proj, start, end);
     if btwn {

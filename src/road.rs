@@ -58,7 +58,7 @@ impl Road {
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 4_f32,
-                raylib::color::Color::WHITESMOKE.into(),
+                raylib::color::Color::WHITE.into()
             )
         }
     }
@@ -268,7 +268,7 @@ fn generate_ring(
         let theta_0 = theta_disp * (i as f64);
         let mut d_theta = theta_noise.perlin(vec2(min_r / 1200.0, theta_0 / 8.0)) * 4.0;
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 1200.0, theta / 8.0)) * 160.0
+        let rad = rad_noise.perlin(vec2(min_r / 1200.0, theta / 8.0)).abs() * 160.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
@@ -475,7 +475,7 @@ fn calc_push_imp(
     };
     let n0 = &roads[nearest_idx];
     let n1 = &roads[second_nearest_idx];
-    let w =  (n0.width+n1.width)/2.0;
+    let w =  max(n0.width,n1.width);
     let failsafe = normalize(&(center - guess)) * w;
     let road1_idx_opt = {
         let mut tmp = None;
@@ -609,7 +609,7 @@ fn scale_rect_to_roads(
         }
         out = b;
         count += 1;
-        if count >1{
+        if count >=1{
             break;
         }
     }
