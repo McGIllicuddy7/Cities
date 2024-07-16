@@ -1,3 +1,6 @@
+use std::f64::consts::TAU;
+
+
 use crate::context::Context;
 use crate::math::*;
 use crate::prof_frame;
@@ -72,7 +75,6 @@ impl Building {
                 }
             }
         }
-
         if !is_degen_tmp(p0) {
             return false;
         }
@@ -247,10 +249,10 @@ impl Block {
 }
 
 pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) -> Vec<Building> {
-    fn building_outside(b: &Building, scaler: f64, context: &Context) -> bool {
+    fn building_outside(b: &Building, scaler: f64, noise:&NoiseGenerator1d,context: &Context) -> bool {
         let mut outside = false;
         let a = b.to_rect().as_array();
-        for i in a {
+        for i in &a {
             if !((i.y > (context.height / 2) as f64 - (context.height / 2) as f64 * scaler
                 && i.y < (context.height) as f64 * scaler)
                 && (i.x > (context.width / 2) as f64 - (context.width / 2) as f64 * scaler
@@ -260,15 +262,23 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
                 break;
             }
         }
-        outside
+        let inside = {
+            let delta = b.center_mass()-context.center();
+            let theta = angle(&delta, &vec2(1.0,0.0));
+            let rad = length(&delta);
+            let max_rad = (context.width) as f64 * (0.5+(noise.get_value(theta)+1.0/2.0)*0.5);
+            rad<max_rad
+        };
+        outside || !inside
     }
     prof_frame!("Building::filter_buildings()");
     let mut out = vec![];
+    let noise =NoiseGenerator1d::new(TAU, 1.0,10, context);
     for b in buildings {
-        //if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler*2_f64.sqrt() {
-        //    continue;
-        //}
-        if building_outside(b, scaler, context) {
+        if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler*2_f64.sqrt() {
+           continue;
+        }
+        if building_outside(b, scaler, &noise,context) {
             continue;
         }
         if b.area() > 1000.0 {
@@ -280,21 +290,16 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
     out
 }
 
+#[allow(unused)]
 fn exterminadus(
     buildings_arc: std::sync::Arc<[Building]>,
     start: usize,
     end: usize,
+    amap:std::sync::Arc<HashGrid<Building>>,
 ) -> Vec<Building> {
     prof_frame!("Building::exterminadus()");
     let buildings: &[Building] = &buildings_arc;
-    let mut v = vec![];
-    for b in buildings {
-        for i in b.to_rect().as_array() {
-            let t = (i.x, i.y, b);
-            v.push(t);
-        }
-    }
-    let map = HashGrid::new(&v, 100);
+    let map = &amap;
     let mut out = vec![];
     for i in start..end {
         let mut overlaps = false;
@@ -302,7 +307,7 @@ fn exterminadus(
         for j in points {
             let p = map.get((j.x, j.y));
             for k in p {
-                if buildings[i] == **k {
+                if buildings[i] == *k {
                     continue;
                 }
                 if rectangles_overlap(&buildings[i].to_rect(), &k.to_rect()) {
@@ -320,9 +325,44 @@ fn exterminadus(
     out
 }
 
-pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
+#[allow(unused)]
+fn purge_degenerates_second_stage(state0:Vec<Building>, buildings:&[Building])->Vec<Building>{
     use std::sync::Arc;
     use std::thread;
+    let s: Arc<[Building]> = state0.into();
+    let s0 = s.clone();
+    let s1 = s.clone();
+    let s2 = s.clone();
+    let s3 = s.clone();
+    let mut v = vec![];
+    for b in buildings {
+        for i in b.to_rect().as_array() {
+            let t = (i.x, i.y, *b);
+            v.push(t);
+        }
+    }
+    let map = HashGrid::new(&v, 128);
+    let amap = Arc::new(map);
+    let m0 = amap.clone();
+    let m1 = amap.clone();
+    let m2 = amap.clone();
+    let m3 = amap.clone();
+    let l = s.len();
+    let t0 = thread::spawn(move || (exterminadus(s0, 0, l / 4,m0)));
+    let t1 = thread::spawn(move || (exterminadus(s1, l / 4, l / 2,m1)));
+    let t2 = thread::spawn(move || (exterminadus(s2, l / 2, 3 * l / 4,m2)));
+    let t3 = exterminadus(s3, 3 * l / 4, l,m3);
+    vec![
+        t0.join().unwrap(),
+        t1.join().unwrap(),
+        t2.join().unwrap(),
+        t3,
+    ]
+    .into_iter()
+    .flatten()
+    .collect()
+}
+pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
     prof_frame!("Building::purge_degenerates()");
     let mut state0 = vec![];
     for b in buildings {
@@ -334,24 +374,5 @@ pub fn purge_degenerates(buildings: &[Building]) -> Vec<Building> {
             }
         }
     }
-
-    let s: Arc<[Building]> = state0.into();
-    let s0 = s.clone();
-    let s1 = s.clone();
-    let s2 = s.clone();
-    let s3 = s.clone();
-    let l = s.len();
-    let t0 = thread::spawn(move || (exterminadus(s0, 0, l / 4)));
-    let t1 = thread::spawn(move || (exterminadus(s1, l / 4, l / 2)));
-    let t2 = thread::spawn(move || (exterminadus(s2, l / 2, 3 * l / 4)));
-    let t3 = exterminadus(s3, 3 * l / 4, l);
-    vec![
-        t0.join().unwrap(),
-        t1.join().unwrap(),
-        t2.join().unwrap(),
-        t3,
-    ]
-    .into_iter()
-    .flatten()
-    .collect()
+    return state0;
 }

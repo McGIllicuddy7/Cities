@@ -5,7 +5,7 @@ use crate::prof_frame;
 pub type Vector2 = TVec2<f64>;
 #[allow(unused)]
 pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vector2 {
-    prof_frame!("math::project_vector2_line");
+    //prof_frame!("math::project_vector2_line");
     if end == start {
         return end;
     }
@@ -17,7 +17,7 @@ pub fn project_vector2_line(point: Vector2, start: Vector2, end: Vector2) -> Vec
 }
 #[allow(unused)]
 pub fn is_between_points(point: Vector2, start: Vector2, end: Vector2) -> bool {
-    prof_frame!("math::is_between_points");
+    //prof_frame!("math::is_between_points");
     let first = {
         let p = point - start;
         let e = end - start;
@@ -304,16 +304,17 @@ impl NoiseOctave2d {
     }
     #[allow(arithmetic_overflow)]
     fn random_gradient(&self, x: i32, y: i32) -> Vector2 {
-        let w: u64 = 64;
-        let s = w / 2;
-        let mut a = x as i64;
-        let mut b = y as i64;
+        use std::num::Wrapping;
+        let w = Wrapping(64 as i64);
+        let s = w / Wrapping(2);
+        let mut a = Wrapping(x as i64);
+        let mut b = Wrapping( y as i64);
         a *= self.v0;
-        b ^= a << s | a >> w - s;
+        b ^= a.0 << s.0 | a.0 >> (w - s).0;
         b *= self.v1;
-        a &= b << s | b >> w - s;
+        a &= b.0 << s.0 | b.0 >>( w - s).0;
         a *= self.v2;
-        let random = a as f64 * (3.14159265 / (!(!0_u64 >> 1)) as f64);
+        let random = a.0 as f64 * (3.14159265 / (!(!0_u64 >> 1)) as f64);
         return vec2(random.cos(), random.sin());
         //return self.points[y as usize % self.points.len()][x as usize % self.points.len()];
     }
@@ -386,6 +387,7 @@ pub struct HashGrid<T: Clone + PartialEq> {
 impl<T: Clone + PartialEq> HashGrid<T> {
     #[allow(unused)]
     pub fn new(points: &[(f64, f64, T)], dim: usize) -> Self {
+        prof_frame!("HashGrid::new()");
         let mut min_x = points[0].0;
         let mut max_x = min_x;
         let mut min_y = points[0].1;
@@ -437,6 +439,7 @@ impl<T: Clone + PartialEq> HashGrid<T> {
     }
     #[allow(unused)]
     pub fn get(&self, point: (f64, f64)) -> &Vec<T> {
+        prof_frame!("HashGrid::get()");
         let x = ((point.0 - self.min_x) / (self.max_x - self.min_x)).floor() as usize;
         let y = ((point.1 - self.min_y) / (self.max_y - self.min_y)).floor() as usize;
         return &self.values[y * self.dim + x];

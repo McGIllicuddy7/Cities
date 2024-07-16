@@ -8,8 +8,8 @@ mod road;
 
 pub fn main() {
     let t = private_profile_start("main");
-    let context = crate::context::Context::new(1000, 1000, 0.85, 0.85, 0.9, 2.0, 4.0, 4.0);
-    let c = city::City::new(1.5, &context);
+    let context = crate::context::Context::new(1000, 1000, 0.85, 0.85, 0.9, 2.0, 4.0, 8.0);
+    let c = city::City::new(2.0, &context);
     println!("profile finished\n");
     drop(t);
     unsafe {

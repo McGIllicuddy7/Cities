@@ -307,13 +307,13 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> 
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let width = {
-            if context.get_random_float() > 0.8 || idx % 3 == 0 {
+            if context.get_random_float() > 0.4 || idx % 3 == 0 {
                 context.large_width
             } else {
                 context.medium_width
             }
         };
-        out.push(link_points_with_road(a.points[idx], b.points[i], width));
+        out.push(link_points_with_road(a.points[idx], b.points[i],width));
     }
     out
 }
@@ -337,8 +337,8 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let disp = 10.0;
     let resolution = 50.0;
     let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
-    let theta_noise = NoiseGenerator2d::new(10, 250.0, context);
-    let rad_noise = NoiseGenerator2d::new(6, 250.0, context);
+    let theta_noise = NoiseGenerator2d::new(10, 100.0, context);
+    let rad_noise = NoiseGenerator2d::new(6, 100.0, context);
     let base = generate_ring(
         dradius / 2_f64,
         disp,
@@ -354,7 +354,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.9 || i % 2 == 0 {
+            if context.get_random_float() > 0.9 || i % 5 == 0 {
                 context.large_width * 1.0
             } else {
                 context.small_width * 1.0
@@ -408,6 +408,7 @@ fn make_new_location_make_sense(
     road1: &Road,
     road2: &Road,
 ) -> Vector2 {
+    prof_frame!("Road::make_new_location_make_sense()");
     let mut v = vc;
     if distance(&(guess + v), &guess) < distance(&guess, &center) {
         if road1.are_on_same_side_of(guess + v, center)
@@ -435,6 +436,7 @@ fn make_new_location_make_sense(
     }
     return vec2(0.0, 0.0);
 }
+
 #[allow(unused)]
 fn calc_push_imp(
     idx: usize,
@@ -443,6 +445,7 @@ fn calc_push_imp(
     center: Vector2,
     guess: Vector2,
 ) -> Vector2 {
+    prof_frame!("Road::calc_push_imp()");
     let nearest_idx = {
         let mut min_idx = 0;
         let mut min_dist = roads[0].distance_to(rect[idx]);
@@ -472,12 +475,8 @@ fn calc_push_imp(
     };
     let n0 = &roads[nearest_idx];
     let n1 = &roads[second_nearest_idx];
-    let w = if n0.width < n1.width {
-        n0.width
-    } else {
-        n1.width
-    };
-    let failsafe = normalize(&(center - rect[idx])) * w;
+    let w =  (n0.width+n1.width)/2.0;
+    let failsafe = normalize(&(center - guess)) * w;
     let road1_idx_opt = {
         let mut tmp = None;
         for i in 0..4 {
@@ -587,6 +586,7 @@ fn calc_push_imp(
     let out = r1v + r2v;
     return make_new_location_make_sense(out, guess, center, road1, road2);
 }
+
 #[allow(unused)]
 fn scale_rect_to_roads(
     base: &Rectangle,
@@ -609,9 +609,22 @@ fn scale_rect_to_roads(
         }
         out = b;
         count += 1;
-        break;
+        if count >1{
+            break;
+        }
     }
-    Rectangle::from(out).scale(noise.perlin(Rectangle::from(out).center()) * 0.05 + 0.95)
+    let scale = {
+        let tmp = noise.perlin(Rectangle::from(out).center()/1000.0) * 0.05;
+        if tmp>0.05{
+            0.05
+        } else if tmp<0.0{
+            0.0
+        }
+        else {
+            tmp
+        }
+    };
+    Rectangle::from(out).scale(scale+0.95)
 }
 
 #[allow(unused)]
