@@ -92,6 +92,7 @@ impl Building {
         }
         return true;
     }
+    
     fn i_fix_pls(&self) -> Option<Self> {
         let p = self.into();
         let d1 = distance(&p[0], &p[1]);

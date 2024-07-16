@@ -307,8 +307,8 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> 
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let width = {
-            if context.get_random_float() > 0.4 || idx % 3 == 0 {
-                context.large_width
+            if context.get_random_float() > 0.4 || idx % 5 == 0 {
+                context.large_width*4.0
             } else {
                 context.medium_width
             }
@@ -475,7 +475,7 @@ fn calc_push_imp(
     };
     let n0 = &roads[nearest_idx];
     let n1 = &roads[second_nearest_idx];
-    let w =  max(n0.width,n1.width);
+    let w =  min(n0.width,n1.width);
     let failsafe = normalize(&(center - guess)) * w;
     let road1_idx_opt = {
         let mut tmp = None;
@@ -515,12 +515,13 @@ fn calc_push_imp(
                 continue;
             }
             if let Some(p) = road1.get_point_idx(rect[i]) {
-                tmp = Some(p);
+                tmp = Some(i);
             }
         }
         tmp
     };
     if road1_other_opt.is_none() {
+        println!("returned with some info");
         return failsafe;
     }
     let road1_other = road1_other_opt.unwrap();
@@ -531,12 +532,13 @@ fn calc_push_imp(
                 continue;
             }
             if let Some(p) = road2.get_point_idx(rect[i]) {
-                tmp = Some(p);
+                tmp = Some(i);
             }
         }
         tmp
     };
     if road2_other_opt.is_none() {
+        println!("returned with some info");
         return failsafe;
     }
     let road2_other = road2_other_opt.unwrap();
@@ -609,7 +611,7 @@ fn scale_rect_to_roads(
         }
         out = b;
         count += 1;
-        if count >=1{
+        if count >1{
             break;
         }
     }

@@ -8,13 +8,12 @@ mod road;
 
 pub fn main() {
     let t = private_profile_start("main");
-    let context = crate::context::Context::new(1000, 1000, 0.85, 0.85, 0.9, 4.0, 4.0, 12.0);
+    let context = crate::context::Context::new(1000, 1000, 0.85, 0.85, 0.9, 1.0, 2.0, 4.0);
     let c = city::City::new(2.0, &context);
     println!("profile finished\n");
     drop(t);
     unsafe {
         raylib::ffi::SetTraceLogLevel(raylib::consts::TraceLogLevel::LOG_ERROR as i32);
-
         raylib::ffi::InitWindow(1000, 1000, "Hello Sailor\0".as_ptr() as *const i8);
         let tex = raylib::ffi::LoadRenderTexture(1000, 1000);
         raylib::ffi::BeginTextureMode(tex.clone());
