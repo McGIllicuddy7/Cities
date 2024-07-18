@@ -123,6 +123,20 @@ impl Road {
         min
     }
     #[allow(unused)]
+    pub fn nearest_point_discrete_idx(&self, location: &Vector2) -> usize{
+        prof_frame!("Road::nearest_point_discrete()");
+        let mut min =0;
+        let mut min_dist = distance(&self.points[min], &location);
+        for i in 0..self.points.len() {
+            let d = distance(&self.points[i], &location);
+            if d < min_dist {
+                min_dist = d;
+                min = i;
+            }
+        }
+        min
+    }
+    #[allow(unused)]
     pub fn get_start_offset_upper(&self) -> Vector2 {
         let v = self.after_start() - self.get_start();
         let t = v.normalize();
@@ -266,9 +280,9 @@ fn generate_ring(
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta = theta_noise.perlin(vec2(min_r / 1200.0, theta_0 / 8.0)) * 4.0;
+        let mut d_theta = theta_noise.perlin(vec2(min_r / 32.0, theta_0 / 8.0)) * 4.0;
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 1200.0, theta / 8.0)).abs() * 160.0
+        let rad = rad_noise.perlin(vec2(min_r / 32.0, theta / 8.0)).abs() * 160.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
@@ -336,9 +350,9 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let count = (max_radius / dradius) as i32;
     let disp = 10.0;
     let resolution = 50.0;
-    let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
-    let theta_noise = NoiseGenerator2d::new(10, 100.0, context);
-    let rad_noise = NoiseGenerator2d::new(6, 100.0, context);
+    let theta_base_noise = NoiseGenerator2d::new(9, 100.0, context);
+    let theta_noise = NoiseGenerator2d::new(9, 100.0, context);
+    let rad_noise = NoiseGenerator2d::new(8, 100.0, context);
     let base = generate_ring(
         dradius / 2_f64,
         disp,
@@ -444,6 +458,7 @@ fn calc_push_imp(
     roads: &[&Road; 4],
     center: Vector2,
     guess: Vector2,
+    base :&Rectangle
 ) -> Vector2 {
     prof_frame!("Road::calc_push_imp()");
     let nearest_idx = {
@@ -493,9 +508,6 @@ fn calc_push_imp(
     let road2_idx_opt = {
         let mut tmp = None;
         for i in 0..4 {
-            if i == road1_idx {
-                continue;
-            }
             if let Some(p) = roads[i].get_point_idx(rect[idx]) {
                 tmp = Some(i)
             }
@@ -506,8 +518,8 @@ fn calc_push_imp(
         return failsafe;
     }
     let road2_idx = road2_idx_opt.unwrap();
-    let road1 = &roads[road1_idx];
-    let road2 = &roads[road2_idx];
+    let road1 = roads[road1_idx];
+    let road2 = roads[road2_idx];
     let road1_other_opt = {
         let mut tmp = None;
         for i in 0..4 {
@@ -521,7 +533,6 @@ fn calc_push_imp(
         tmp
     };
     if road1_other_opt.is_none() {
-        println!("returned with some info");
         return failsafe;
     }
     let road1_other = road1_other_opt.unwrap();
@@ -538,7 +549,6 @@ fn calc_push_imp(
         tmp
     };
     if road2_other_opt.is_none() {
-        println!("returned with some info");
         return failsafe;
     }
     let road2_other = road2_other_opt.unwrap();
@@ -586,7 +596,12 @@ fn calc_push_imp(
         }
     };
     let out = r1v + r2v;
-    return make_new_location_make_sense(out, guess, center, road1, road2);
+    println!("returned with info");
+    let tmp = make_new_location_make_sense(out, guess, center, road1, road2);
+    if !rectangle_contains_point(base, &(guess+tmp)){
+        return vec2(0.0, 0.0);
+    }
+    tmp
 }
 
 #[allow(unused)]
@@ -607,7 +622,7 @@ fn scale_rect_to_roads(
     loop {
         let mut b = out;
         for i in 0..4 {
-            b[i] += calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i]);
+            b[i] += calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base);
         }
         out = b;
         count += 1;

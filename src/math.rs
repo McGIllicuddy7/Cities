@@ -225,6 +225,7 @@ pub fn triangle_contains_point(point: &Vector2, v1: &Vector2, v2: &Vector2, v3: 
     let has_pos = (d1 > 0.0) || (d2 > 0.0) || (d3 > 0.0);
     !(has_neg && has_pos)
 }
+
 #[allow(unused)]
 pub fn rectangles_overlap(a: &Rectangle, b: &Rectangle) -> bool {
     prof_frame!("math::rectangles_overlap()");
@@ -245,6 +246,16 @@ pub fn rectangles_overlap(a: &Rectangle, b: &Rectangle) -> bool {
         }
     }
     return false;
+}
+#[allow(unused)]
+pub fn rectangle_contains_point(a:&Rectangle, b:&Vector2)->bool{
+    let av = a.as_array();
+        if triangle_contains_point(b, &av[0], &av[1], &av[2]) {
+            return true;
+        } else if triangle_contains_point(b, &av[3], &av[2], &av[1]) {
+            return true;
+        } 
+        return false;
 }
 #[allow(unused)]
 struct NoiseOctave1d {
