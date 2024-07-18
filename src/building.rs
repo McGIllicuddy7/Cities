@@ -195,7 +195,7 @@ pub fn generate_blocks(rings: Vec<road::Ring>, context: &Context) -> Vec<Block> 
         out.into_iter().flatten().collect()
     }
     prof_frame!("Building::generate_blocks()");
-    let noise = NoiseGenerator2d::new(10, 500.0, context);
+    let noise = NoiseGenerator2d::new(10, 1.0, context);
     let noise_arc = Arc::new(noise);
     let l = rings.len();
     let arc = Arc::new(rings);

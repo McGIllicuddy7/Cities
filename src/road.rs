@@ -58,7 +58,7 @@ impl Road {
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width*1.0) as f32,
-                raylib::color::Color::RED.into()
+                raylib::color::Color::WHITE.into()
             )
         }
     }
@@ -368,8 +368,8 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.9 || i % 3== 0 {
-                context.small_width * 1.0
+            if context.get_random_float() > 0.8 || i % 3== 0 {
+                context.large_width * 1.0
             } else {
                 context.small_width * 1.0
             }
@@ -490,7 +490,7 @@ fn calc_push_imp(
     };
     let n0 = roads[nearest_idx];
     let n1 = roads[second_nearest_idx];
-    let w =  max(n0.width,n1.width);
+    let w = max(n0.width,n1.width);
     let failsafe = {
         let tmp =  n0.get_normal_at_location_toward(rect[idx],center)*n0.width+n1.get_normal_at_location_toward(rect[idx], center)*n1.width;
         if rectangle_contains_point(base, &tmp){
@@ -528,7 +528,12 @@ fn calc_push_imp(
     let road1 = roads[road1_idx];
     let road2 = roads[road2_idx];
     let failsafe = {
-        Some( road1.get_normal_at_location_toward(rect[idx],center)*road1.width+road2.get_normal_at_location_toward(rect[idx], center))
+        let tmp = road1.get_normal_at_location_toward(rect[idx],center)*road1.width+road2.get_normal_at_location_toward(rect[idx], center)*road2.width;
+        if rectangle_contains_point(base, &tmp){
+            Some(tmp)
+        } else{
+            failsafe
+        }
     };
     let road1_other_opt = {
         let mut tmp = None;
@@ -620,7 +625,7 @@ fn scale_rect_to_roads(
     bottom: &Road,
     left: &Road,
     right: &Road,
-    _noise: &NoiseGenerator2d,
+    noise: &NoiseGenerator2d,
 ) -> Option<Rectangle> {
     prof_frame!("Road::scale_rect_to_roads()");
     let s = base.scale(1.0);
@@ -639,11 +644,12 @@ fn scale_rect_to_roads(
         }
         out = b;
         count += 1;
-        if count >=1{
+        if count >1{
             break;
         }
     }
-    Some(Rectangle::from(out).scale(0.9))
+    let s= noise.perlin(base.center()*100.0)*0.2;
+    Some(Rectangle::from(out).scale(0.8+s))
 }
 
 #[allow(unused)]
