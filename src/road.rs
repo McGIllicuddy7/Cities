@@ -57,8 +57,8 @@ impl Road {
             raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
-                4_f32,
-                raylib::color::Color::WHITE.into()
+                (self.width*1.0) as f32,
+                raylib::color::Color::RED.into()
             )
         }
     }
@@ -275,12 +275,12 @@ fn generate_ring(
     let max_r = radius + disp;
     let theta_disp = TAU / count;
     let theta_offset = (PI / count * 2.0).round() as i32;
-    let theta_base = (tbase_noise.perlin(vec2(min_r / 100.0, max_r / 100.0)) * 0.5);
+    let theta_base = (tbase_noise.perlin(vec2(min_r / 100.0, max_r / 100.0)) * 0.1);
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta = theta_noise.perlin(vec2(min_r / 32.0, theta_0 / 8.0)) * 4.0;
+        let mut d_theta = theta_noise.perlin(vec2(min_r /32.0, theta_0 / 8.0)) * 2.0;
         let theta = theta_0 + d_theta + theta_base;
         let rad = rad_noise.perlin(vec2(min_r / 32.0, theta / 8.0)).abs() * 160.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
@@ -322,7 +322,7 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> 
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let width = {
             if context.get_random_float() > 0.4 || idx % 5 == 0 {
-                context.large_width*4.0
+                context.large_width*2.0
             } else {
                 context.medium_width
             }
@@ -350,9 +350,9 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let count = (max_radius / dradius) as i32;
     let disp = 10.0;
     let resolution = 50.0;
-    let theta_base_noise = NoiseGenerator2d::new(9, 100.0, context);
-    let theta_noise = NoiseGenerator2d::new(9, 100.0, context);
-    let rad_noise = NoiseGenerator2d::new(8, 100.0, context);
+    let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
+    let theta_noise = NoiseGenerator2d::new(5, 100.0, context);
+    let rad_noise = NoiseGenerator2d::new(4, 50.0, context);
     let base = generate_ring(
         dradius / 2_f64,
         disp,
@@ -368,8 +368,8 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.9 || i % 5 == 0 {
-                context.large_width * 1.0
+            if context.get_random_float() > 0.9 || i % 3== 0 {
+                context.small_width * 1.0
             } else {
                 context.small_width * 1.0
             }
@@ -459,7 +459,7 @@ fn calc_push_imp(
     center: Vector2,
     guess: Vector2,
     base :&Rectangle
-) -> Vector2 {
+) -> Option<Vector2> {
     prof_frame!("Road::calc_push_imp()");
     let nearest_idx = {
         let mut min_idx = 0;
@@ -488,10 +488,12 @@ fn calc_push_imp(
         }
         min_idx
     };
-    let n0 = &roads[nearest_idx];
-    let n1 = &roads[second_nearest_idx];
+    let n0 = roads[nearest_idx];
+    let n1 = roads[second_nearest_idx];
     let w =  min(n0.width,n1.width);
-    let failsafe = normalize(&(center - guess)) * w;
+    let failsafe = {
+        Some( n0.get_normal_at_location_toward(rect[idx],center)*n0.width+n1.get_normal_at_location_toward(rect[idx], center)*n1.width)
+    };
     let road1_idx_opt = {
         let mut tmp = None;
         for i in 0..4 {
@@ -520,6 +522,9 @@ fn calc_push_imp(
     let road2_idx = road2_idx_opt.unwrap();
     let road1 = roads[road1_idx];
     let road2 = roads[road2_idx];
+    let failsafe = {
+        Some( road1.get_normal_at_location_toward(rect[idx],center)*road1.width+road2.get_normal_at_location_toward(rect[idx], center))
+    };
     let road1_other_opt = {
         let mut tmp = None;
         for i in 0..4 {
@@ -596,12 +601,11 @@ fn calc_push_imp(
         }
     };
     let out = r1v + r2v;
-    println!("returned with info");
     let tmp = make_new_location_make_sense(out, guess, center, road1, road2);
     if !rectangle_contains_point(base, &(guess+tmp)){
-        return vec2(0.0, 0.0);
+        return None;
     }
-    tmp
+  Some ( tmp)
 }
 
 #[allow(unused)]
@@ -611,8 +615,8 @@ fn scale_rect_to_roads(
     bottom: &Road,
     left: &Road,
     right: &Road,
-    noise: &NoiseGenerator2d,
-) -> Rectangle {
+    _noise: &NoiseGenerator2d,
+) -> Option<Rectangle> {
     prof_frame!("Road::scale_rect_to_roads()");
     let s = base.scale(1.0);
     let a = s.as_array();
@@ -622,26 +626,19 @@ fn scale_rect_to_roads(
     loop {
         let mut b = out;
         for i in 0..4 {
-            b[i] += calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base);
+            if let Some(p)= calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base){
+                b[i] += p
+            }else{
+                return None;
+            }
         }
         out = b;
         count += 1;
-        if count >1{
+        if count >=1{
             break;
         }
     }
-    let scale = {
-        let tmp = noise.perlin(Rectangle::from(out).center()/1000.0) * 0.05;
-        if tmp>0.05{
-            0.05
-        } else if tmp<0.0{
-            0.0
-        }
-        else {
-            tmp
-        }
-    };
-    Rectangle::from(out).scale(scale+0.95)
+    Some(Rectangle::from(out).scale(0.9))
 }
 
 #[allow(unused)]
@@ -655,7 +652,7 @@ fn segment_available_locations(
 ) -> Vec<Rectangle> {
     prof_frame!("Road::segment_available_locations()");
     let two = 2 as f64;
-    let base = scale_rect_to_roads(
+    let base_opt = scale_rect_to_roads(
         &Rectangle {
             v0: lower_side.get_start(),
             v1: upper_side.get_start(),
@@ -668,6 +665,10 @@ fn segment_available_locations(
         &upper_side,
         noise,
     );
+    if base_opt.is_none(){
+        return vec![];
+    }
+    let base = base_opt.unwrap();
     let v0 = base.v0;
     let v1 = base.v1;
     let v2 = base.v2;
