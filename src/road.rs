@@ -490,9 +490,14 @@ fn calc_push_imp(
     };
     let n0 = roads[nearest_idx];
     let n1 = roads[second_nearest_idx];
-    let w =  min(n0.width,n1.width);
+    let w =  max(n0.width,n1.width);
     let failsafe = {
-        Some( n0.get_normal_at_location_toward(rect[idx],center)*n0.width+n1.get_normal_at_location_toward(rect[idx], center)*n1.width)
+        let tmp =  n0.get_normal_at_location_toward(rect[idx],center)*n0.width+n1.get_normal_at_location_toward(rect[idx], center)*n1.width;
+        if rectangle_contains_point(base, &tmp){
+            Some(tmp)
+        } else{
+            Some((guess-rect[idx])*w)
+        }
     };
     let road1_idx_opt = {
         let mut tmp = None;
