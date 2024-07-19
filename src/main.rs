@@ -5,6 +5,7 @@ mod context;
 mod math;
 mod prof;
 mod road;
+mod water;
 use crate::context::Context;
 pub fn main() {
     let t = private_profile_start("main");
