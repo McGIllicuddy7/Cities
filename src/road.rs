@@ -54,12 +54,12 @@ impl Road {
         for i in 0..self.points.len() - 1 {
             let s = self.points[i];
             let e = self.points[(i + 1) % self.points.len()];
-            raylib::ffi::DrawLineEx(
+            /*raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width*1.0) as f32,
                 raylib::color::Color::WHITE.into()
-            )
+             )*/
         }
     }
 
@@ -68,13 +68,15 @@ impl Road {
         for i in 0..self.points.len() - 1 {
             let s = self.points[i];
             let e = self.points[(i + 1) % self.points.len()];
+            raylib::ffi::DrawCircleV(to_raylib_vec(e), (self.width/2.0)as f32, raylib::color::Color::DARKBLUE.into());
             raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
-                4_f32,
+                self.width as f32,
                 raylib::color::Color::DARKBLUE.into(),
             )
         }
+        raylib::ffi::DrawCircleV(to_raylib_vec(self.points[0]), (self.width/2.0)as f32, raylib::color::Color::DARKBLUE.into());
     }
 
     #[allow(unused)]

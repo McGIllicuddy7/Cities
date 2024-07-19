@@ -3,6 +3,7 @@ use crate::context::Context;
 use crate::math::*;
 use crate::prof_frame;
 use crate::road::Road;
+use crate::water::{climate_change, generate_water_ways, Direction, WaterGenerationRequest};
 use crate::{building, road};
 #[allow(unused)]
 pub struct City {
@@ -31,19 +32,23 @@ impl City {
         };
         let buildings = filter_buildings(buildings.as_slice(), scaler, context);
         let buildings = purge_degenerates(buildings.as_slice());
-        Self {
+        let mut out = Self {
             roads,
             buildings,
             water: vec![],
         }
-        .scale(context, scale)
+        .scale(context, scale);
+        let water = generate_water_ways(WaterGenerationRequest::RiverToCoast   { dir:Direction::East }, context);
+        out.buildings = climate_change(&out.buildings, &water);
+        out.water = water;
+        out
     }
     pub unsafe fn draw(&self, context: &Context) {
-        for r in &self.water {
-            r.draw_as_water(context);
-        }
         for r in &self.roads {
             r.draw(context);
+        }
+        for r in &self.water {
+            r.draw_as_water(context);
         }
         for b in &self.buildings {
             b.draw(context);
