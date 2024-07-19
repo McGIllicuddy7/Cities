@@ -54,12 +54,12 @@ impl Road {
         for i in 0..self.points.len() - 1 {
             let s = self.points[i];
             let e = self.points[(i + 1) % self.points.len()];
-            /*raylib::ffi::DrawLineEx(
+            raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width*1.0) as f32,
                 raylib::color::Color::WHITE.into()
-             )*/
+             )
         }
     }
 
@@ -68,12 +68,13 @@ impl Road {
         for i in 0..self.points.len() - 1 {
             let s = self.points[i];
             let e = self.points[(i + 1) % self.points.len()];
-            raylib::ffi::DrawCircleV(to_raylib_vec(e), (self.width/2.0)as f32, raylib::color::Color::DARKBLUE.into());
+            let col = raylib::color::Color::BLACK;
+            raylib::ffi::DrawCircleV(to_raylib_vec(e), (self.width/2.0)as f32, col.into());
             raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 self.width as f32,
-                raylib::color::Color::DARKBLUE.into(),
+                col.into(),
             )
         }
         raylib::ffi::DrawCircleV(to_raylib_vec(self.points[0]), (self.width/2.0)as f32, raylib::color::Color::DARKBLUE.into());
@@ -492,7 +493,7 @@ fn calc_push_imp(
     };
     let n0 = roads[nearest_idx];
     let n1 = roads[second_nearest_idx];
-    let w = max(n0.width,n1.width);
+    let w = min(n0.width,n1.width);
     let failsafe = {
         let tmp =  n0.get_normal_at_location_toward(rect[idx],center)*n0.width+n1.get_normal_at_location_toward(rect[idx], center)*n1.width;
         if rectangle_contains_point(base, &tmp){

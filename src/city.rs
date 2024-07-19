@@ -37,7 +37,7 @@ impl City {
             buildings,
             water: vec![],
         }
-        .scale(context, scale);
+        .scale(context, scale*1.05);
         let water = generate_water_ways(WaterGenerationRequest::RiverToCoast   { dir:Direction::East }, context);
         out.buildings = climate_change(&out.buildings, &water);
         out.water = water;

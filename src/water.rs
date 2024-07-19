@@ -4,7 +4,7 @@ use crate::road::*;
 use crate::math::*;
 use crate::building::Building;
 type Water =Road;
-const WATER_WIDTH:f64 = 5.0;
+const WATER_WIDTH:f64 = 10.0;
 #[allow(unused)]
 #[derive(Clone,Copy,PartialEq)]
 pub enum Direction{
@@ -49,8 +49,7 @@ fn connect_points_into_water(start:Vector2, end:Vector2, context:&Context)->Wate
     let delta_x = rotate_vec2(&normalize(&delta), 90.0);
     let dl = length(&delta);
     let mut current = start;
-    points.push(current);
-    for i in 0..count+1{
+    for i in 0..count+8{
         current = start+delta_x*noise.get_value(dl*i as f64)*100.0+delta*(i as f64);
         points.push(current);
     }

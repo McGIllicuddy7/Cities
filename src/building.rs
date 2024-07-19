@@ -267,23 +267,20 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
             let delta = b.center_mass()-context.center();
             let theta = angle(&delta, &vec2(1.0,0.0));
             let rad = length(&delta);
-            let max_rad = (context.width) as f64 * (0.5+((noise.get_value(theta)+1.0)/2.0).sqrt()*0.5);
+            let max_rad = (context.width) as f64 * (0.5+((noise.get_value(theta*2.0)+1.0)/2.0).sqrt()*0.5)*scaler*0.9;
             rad<max_rad
         };
-        outside || !inside
+        outside ||!inside
     }
     prof_frame!("Building::filter_buildings()");
     let mut out = vec![];
-    let noise =NoiseGenerator1d::new(TAU, 0.5,2, context);
+    let noise =NoiseGenerator1d::new(TAU*2.0, 1.0,4, context);
     for b in buildings {
         if distance(&b.center_mass(), &context.center()) > (context.width / 2) as f64 * scaler*2_f64.sqrt() {
            continue;
         }
         if building_outside(b, scaler, &noise,context) {
             continue;
-        }
-        if b.area() > 1000.0 {
-            out.push(Building::from(b.to_rect().scale(0.9).as_array()));
         } else {
             out.push(b.clone());
         }
