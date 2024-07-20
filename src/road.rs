@@ -716,7 +716,7 @@ fn scale_rect_to_roads(
         }
         out = b;
         count += 1;
-        if count >= 1 {
+        if count > 1 {
             break;
         }
     }
