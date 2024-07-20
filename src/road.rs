@@ -1,5 +1,6 @@
 use crate::building::generate_building_from_rectangle;
 use crate::building::Block;
+use crate::context;
 use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
@@ -57,9 +58,9 @@ impl Road {
             raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
-                (self.width*1.0) as f32,
-                raylib::color::Color::WHITE.into()
-             )
+                (self.width * 1.0) as f32,
+                raylib::color::Color::WHITE.into(),
+            )
         }
     }
 
@@ -68,8 +69,8 @@ impl Road {
         for i in 0..self.points.len() - 1 {
             let s = self.points[i];
             let e = self.points[(i + 1) % self.points.len()];
-            let col = raylib::color::Color::BLACK;
-            raylib::ffi::DrawCircleV(to_raylib_vec(e), (self.width/2.0)as f32, col.into());
+            let col = raylib::color::Color::DARKGRAY;
+            raylib::ffi::DrawCircleV(to_raylib_vec(e), (self.width / 2.0) as f32, col.into());
             raylib::ffi::DrawLineEx(
                 to_raylib_vec(s),
                 to_raylib_vec(e),
@@ -77,7 +78,11 @@ impl Road {
                 col.into(),
             )
         }
-        raylib::ffi::DrawCircleV(to_raylib_vec(self.points[0]), (self.width/2.0)as f32, raylib::color::Color::DARKBLUE.into());
+        raylib::ffi::DrawCircleV(
+            to_raylib_vec(self.points[0]),
+            (self.width / 2.0) as f32,
+            raylib::color::Color::DARKBLUE.into(),
+        );
     }
 
     #[allow(unused)]
@@ -126,9 +131,9 @@ impl Road {
         min
     }
     #[allow(unused)]
-    pub fn nearest_point_discrete_idx(&self, location: &Vector2) -> usize{
+    pub fn nearest_point_discrete_idx(&self, location: &Vector2) -> usize {
         prof_frame!("Road::nearest_point_discrete()");
-        let mut min =0;
+        let mut min = 0;
         let mut min_dist = distance(&self.points[min], &location);
         for i in 0..self.points.len() {
             let d = distance(&self.points[i], &location);
@@ -283,7 +288,7 @@ fn generate_ring(
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta = theta_noise.perlin(vec2(min_r /32.0, theta_0 / 8.0)) * 2.0;
+        let mut d_theta = theta_noise.perlin(vec2(min_r / 32.0, theta_0 / 8.0)) * 2.0;
         let theta = theta_0 + d_theta + theta_base;
         let rad = rad_noise.perlin(vec2(min_r / 32.0, theta / 8.0)).abs() * 160.0
             + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
@@ -325,12 +330,12 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> 
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let width = {
             if context.get_random_float() > 0.4 || idx % 5 == 0 {
-                context.large_width*2.0
+                context.large_width * 2.0
             } else {
                 context.medium_width
             }
         };
-        out.push(link_points_with_road(a.points[idx], b.points[i],width));
+        out.push(link_points_with_road(a.points[idx], b.points[i], width));
     }
     out
 }
@@ -371,7 +376,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.8 || i % 3== 0 {
+            if context.get_random_float() > 0.8 || i % 3 == 0 {
                 context.large_width * 1.0
             } else {
                 context.small_width * 1.0
@@ -461,7 +466,7 @@ fn calc_push_imp(
     roads: &[&Road; 4],
     center: Vector2,
     guess: Vector2,
-    base :&Rectangle
+    base: &Rectangle,
 ) -> Option<Vector2> {
     prof_frame!("Road::calc_push_imp()");
     let nearest_idx = {
@@ -493,13 +498,14 @@ fn calc_push_imp(
     };
     let n0 = roads[nearest_idx];
     let n1 = roads[second_nearest_idx];
-    let w = min(n0.width,n1.width);
+    let w = min(n0.width, n1.width);
     let failsafe = {
-        let tmp =  n0.get_normal_at_location_toward(rect[idx],center)*n0.width+n1.get_normal_at_location_toward(rect[idx], center)*n1.width;
-        if rectangle_contains_point(base, &tmp){
+        let tmp = n0.get_normal_at_location_toward(rect[idx], center) * n0.width
+            + n1.get_normal_at_location_toward(rect[idx], center) * n1.width;
+        if rectangle_contains_point(base, &tmp) {
             Some(tmp)
-        } else{
-            Some((guess-rect[idx])*w)
+        } else {
+            Some((guess - rect[idx]) * w)
         }
     };
     let road1_idx_opt = {
@@ -531,10 +537,11 @@ fn calc_push_imp(
     let road1 = roads[road1_idx];
     let road2 = roads[road2_idx];
     let failsafe = {
-        let tmp = road1.get_normal_at_location_toward(rect[idx],center)*road1.width+road2.get_normal_at_location_toward(rect[idx], center)*road2.width;
-        if rectangle_contains_point(base, &tmp){
+        let tmp = road1.get_normal_at_location_toward(rect[idx], center) * road1.width
+            + road2.get_normal_at_location_toward(rect[idx], center) * road2.width;
+        if rectangle_contains_point(base, &tmp) {
             Some(tmp)
-        } else{
+        } else {
             failsafe
         }
     };
@@ -615,10 +622,60 @@ fn calc_push_imp(
     };
     let out = r1v + r2v;
     let tmp = make_new_location_make_sense(out, guess, center, road1, road2);
-    if !rectangle_contains_point(base, &(guess+tmp)){
+    if !rectangle_contains_point(base, &(guess + tmp)) {
         return None;
     }
-  Some ( tmp)
+    Some(tmp)
+}
+#[allow(unused)]
+fn calc_push(
+    idx: usize,
+    array: &[Vector2; 4],
+    top: &Road,
+    bottom: &Road,
+    left: &Road,
+    right: &Road,
+    center: Vector2,
+    context: &Context,
+) -> Option<Vector2> {
+    //0 == lower_side start,
+    //1 == upper side start,
+    //2 = lower_side end,
+    //3  = upper_side end
+    //top is outer,
+    //bottom is inner,
+    //left is lower_side,
+    //right is upper_side,
+    let out_vec = rotate_vector_toward(
+        normalize(&(array[0] - array[2])),
+        center - context.center(),
+        90.0,
+    ) * bottom.width;
+    let in_vec = rotate_vector_toward(
+        normalize(&(array[1] - array[2])),
+        context.center() - center,
+        90.0,
+    ) * top.width;
+    let left_vec = rotate_vector_toward(
+        normalize(&(array[0] - array[1])),
+        center - (array[0] + array[1]) / 2.0,
+        90.0,
+    ) * left.width;
+    let right_vec = rotate_vector_toward(
+        normalize(&(array[2] - array[3])),
+        center - (array[2] + array[3]) / 2.0,
+        90.0,
+    ) * right.width;
+    if idx == 0 {
+        return Some(out_vec + left_vec);
+    } else if idx == 1 {
+        return Some(in_vec + left_vec);
+    } else if idx == 2 {
+        return Some(out_vec + right_vec);
+    } else if idx == 3 {
+        return Some(in_vec + right_vec);
+    }
+    None
 }
 
 #[allow(unused)]
@@ -629,6 +686,7 @@ fn scale_rect_to_roads(
     left: &Road,
     right: &Road,
     noise: &NoiseGenerator2d,
+    context: &Context,
 ) -> Option<Rectangle> {
     prof_frame!("Road::scale_rect_to_roads()");
     let s = base.scale(1.0);
@@ -639,20 +697,25 @@ fn scale_rect_to_roads(
     loop {
         let mut b = out;
         for i in 0..4 {
-            if let Some(p)= calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base){
+            /*if let Some(p) = calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base) {
                 b[i] += p
-            }else{
+            } else {
+                return None;
+            }*/
+            if let Some(p) = calc_push(i, &a, top, bottom, left, right, center, context) {
+                b[i] += p;
+            } else {
                 return None;
             }
         }
         out = b;
         count += 1;
-        if count >1{
+        if count >= 1 {
             break;
         }
     }
-    let s= noise.perlin(base.center()*100.0)*0.2;
-    Some(Rectangle::from(out).scale(0.8+s))
+    let s = noise.perlin(base.center() * 100.0) * 0.2;
+    Some(Rectangle::from(out).scale(0.8 + s))
 }
 
 #[allow(unused)]
@@ -678,8 +741,9 @@ fn segment_available_locations(
         &lower_side,
         &upper_side,
         noise,
+        context,
     );
-    if base_opt.is_none(){
+    if base_opt.is_none() {
         return vec![];
     }
     let base = base_opt.unwrap();

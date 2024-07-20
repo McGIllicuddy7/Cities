@@ -4,20 +4,35 @@ use crate::context::*;
 use crate::prof_frame;
 pub type Vector2 = TVec2<f64>;
 #[allow(unused)]
-pub fn max<T>(a:T, b:T)->T
-where T:PartialOrd{
-    if a>b{
+pub fn rotate_vector_toward(base: Vector2, target: Vector2, angle: f64) -> Vector2 {
+    let s = rotate_vec2(&base, angle);
+    let ns = normalize(&s);
+    let nt = normalize(&target);
+    if dot(&ns, &nt) < 0.0 {
+        -s
+    } else {
+        s
+    }
+}
+#[allow(unused)]
+pub fn max<T>(a: T, b: T) -> T
+where
+    T: PartialOrd,
+{
+    if a > b {
         a
-    } else{
+    } else {
         b
     }
 }
 #[allow(unused)]
-pub fn min<T>(a:T, b:T)->T
-where T:PartialOrd{
-    if a>b{
+pub fn min<T>(a: T, b: T) -> T
+where
+    T: PartialOrd,
+{
+    if a > b {
         b
-    } else{
+    } else {
         a
     }
 }
@@ -248,14 +263,14 @@ pub fn rectangles_overlap(a: &Rectangle, b: &Rectangle) -> bool {
     return false;
 }
 #[allow(unused)]
-pub fn rectangle_contains_point(a:&Rectangle, b:&Vector2)->bool{
+pub fn rectangle_contains_point(a: &Rectangle, b: &Vector2) -> bool {
     let av = a.as_array();
-        if triangle_contains_point(b, &av[0], &av[1], &av[2]) {
-            return true;
-        } else if triangle_contains_point(b, &av[3], &av[2], &av[1]) {
-            return true;
-        } 
-        return false;
+    if triangle_contains_point(b, &av[0], &av[1], &av[2]) {
+        return true;
+    } else if triangle_contains_point(b, &av[3], &av[2], &av[1]) {
+        return true;
+    }
+    return false;
 }
 #[allow(unused)]
 struct NoiseOctave1d {
@@ -337,11 +352,11 @@ impl NoiseOctave2d {
         let w = Wrapping(64 as i64);
         let s = w / Wrapping(2);
         let mut a = Wrapping(x as i64);
-        let mut b = Wrapping( y as i64);
+        let mut b = Wrapping(y as i64);
         a *= self.v0;
         b ^= a.0 << s.0 | a.0 >> (w - s).0;
         b *= self.v1;
-        a &= b.0 << s.0 | b.0 >>( w - s).0;
+        a &= b.0 << s.0 | b.0 >> (w - s).0;
         a *= self.v2;
         let random = a.0 as f64 * (3.14159265 / (!(!0_u64 >> 1)) as f64);
         return vec2(random.cos(), random.sin());
