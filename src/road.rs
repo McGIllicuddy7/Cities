@@ -670,10 +670,6 @@ fn calc_push(
         -((array[2] + array[3]) / 2.0 - center),
         90.0,
     )) * right.width;
-    //assert!(length(&out_vec) > 0.0);
-    //assert!(length(&in_vec) > 0.0);
-    //assert!(length(&left_vec) > 0.0);
-    //assert!(length(&right_vec) > 0.0);
     let mut out = None;
     if idx == 0 {
         out = Some(out_vec + left_vec);
@@ -685,9 +681,6 @@ fn calc_push(
         out = Some(in_vec + right_vec);
     }
     let t = out?;
-    if (length(&t) < 3.0) {
-        return None;
-    }
     return Some(t);
 }
 
