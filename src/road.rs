@@ -329,10 +329,10 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> 
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let width = {
-            if context.get_random_float() > 0.4 || idx % 5 == 0 {
-                context.large_width * 2.0
+            if context.get_random_float() > 0.9 || idx % 2 == 0 {
+                context.large_width * 1.0
             } else {
-                context.medium_width
+                context.small_width
             }
         };
         out.push(link_points_with_road(a.points[idx], b.points[i], width));
@@ -376,7 +376,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.8 || i % 3 == 0 {
+            if context.get_random_float() > 0.8 || i % 2 == 0 {
                 context.large_width * 1.0
             } else {
                 context.small_width * 1.0
@@ -646,36 +646,49 @@ fn calc_push(
     //bottom is inner,
     //left is lower_side,
     //right is upper_side,
-    let out_vec = rotate_vector_toward(
+    assert!(top.width > 0.0);
+    assert!(bottom.width > 0.0);
+    assert!(left.width > 0.0);
+    assert!(right.width > 0.0);
+    let out_vec = normalize(&rotate_vector_toward(
         normalize(&(array[0] - array[2])),
-        center - context.center(),
+        -((array[0] + array[2]) / 2.0 - center),
         90.0,
-    ) * bottom.width;
-    let in_vec = rotate_vector_toward(
+    )) * bottom.width;
+    let in_vec = normalize(&rotate_vector_toward(
         normalize(&(array[1] - array[2])),
-        context.center() - center,
+        -((array[1] + array[2]) / 2.0 - center),
         90.0,
-    ) * top.width;
-    let left_vec = rotate_vector_toward(
+    )) * top.width;
+    let left_vec = normalize(&rotate_vector_toward(
         normalize(&(array[0] - array[1])),
-        center - (array[0] + array[1]) / 2.0,
+        -((array[0] + array[1]) / 2.0 - center),
         90.0,
-    ) * left.width;
-    let right_vec = rotate_vector_toward(
+    )) * left.width;
+    let right_vec = normalize(&rotate_vector_toward(
         normalize(&(array[2] - array[3])),
-        center - (array[2] + array[3]) / 2.0,
+        -((array[2] + array[3]) / 2.0 - center),
         90.0,
-    ) * right.width;
+    )) * right.width;
+    //assert!(length(&out_vec) > 0.0);
+    //assert!(length(&in_vec) > 0.0);
+    //assert!(length(&left_vec) > 0.0);
+    //assert!(length(&right_vec) > 0.0);
+    let mut out = None;
     if idx == 0 {
-        return Some(out_vec + left_vec);
+        out = Some(out_vec + left_vec);
     } else if idx == 1 {
-        return Some(in_vec + left_vec);
+        out = Some(in_vec + left_vec);
     } else if idx == 2 {
-        return Some(out_vec + right_vec);
+        out = Some(out_vec + right_vec);
     } else if idx == 3 {
-        return Some(in_vec + right_vec);
+        out = Some(in_vec + right_vec);
     }
-    None
+    let t = out?;
+    if (length(&t) < 3.0) {
+        return None;
+    }
+    return Some(t);
 }
 
 #[allow(unused)]
@@ -714,8 +727,8 @@ fn scale_rect_to_roads(
             break;
         }
     }
-    let s = noise.perlin(base.center() * 100.0) * 0.2;
-    Some(Rectangle::from(out).scale(0.8 + s))
+    let _s = noise.perlin(base.center() * 100.0) * 0.01;
+    Some(Rectangle::from(out).scale(1.0))
 }
 
 #[allow(unused)]
