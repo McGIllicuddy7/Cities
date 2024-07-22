@@ -712,7 +712,7 @@ fn scale_rect_to_roads(
         }
     }
     let _s = noise.perlin(base.center() * 100.0) * 0.01;
-    Some(Rectangle::from(out).scale(0.9))
+    Some(Rectangle::from(out).scale(0.8))
 }
 
 #[allow(unused)]
