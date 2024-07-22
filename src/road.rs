@@ -650,26 +650,10 @@ fn calc_push(
     assert!(bottom.width > 0.0);
     assert!(left.width > 0.0);
     assert!(right.width > 0.0);
-    let out_vec = normalize(&rotate_vector_toward(
-        normalize(&(array[0] - array[2])),
-        -((array[0] + array[2]) / 2.0 - center),
-        90.0,
-    )) * bottom.width;
-    let in_vec = normalize(&rotate_vector_toward(
-        normalize(&(array[1] - array[2])),
-        -((array[1] + array[2]) / 2.0 - center),
-        90.0,
-    )) * top.width;
-    let left_vec = normalize(&rotate_vector_toward(
-        normalize(&(array[0] - array[1])),
-        -((array[0] + array[1]) / 2.0 - center),
-        90.0,
-    )) * left.width;
-    let right_vec = normalize(&rotate_vector_toward(
-        normalize(&(array[2] - array[3])),
-        -((array[2] + array[3]) / 2.0 - center),
-        90.0,
-    )) * right.width;
+    let out_vec = normalize(&-((array[0] + array[2]) / 2.0 - center)) * bottom.width;
+    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width;
+    let left_vec =normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width;
+    let right_vec =normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width;
     let mut out = None;
     if idx == 0 {
         out = Some(out_vec + left_vec);
@@ -681,6 +665,7 @@ fn calc_push(
         out = Some(in_vec + right_vec);
     }
     let t = out?;
+    assert!(length(&t)>0.0);
     return Some(t);
 }
 
