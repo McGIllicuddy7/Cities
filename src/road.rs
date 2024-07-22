@@ -1,6 +1,5 @@
 use crate::building::generate_building_from_rectangle;
 use crate::building::Block;
-use crate::context;
 use crate::context::Context;
 #[allow(unused)]
 use crate::math::*;
@@ -625,8 +624,12 @@ fn calc_push_imp(
     if !rectangle_contains_point(base, &(guess + tmp)) {
         return None;
     }
+    if length(&tmp) < 1.0 {
+        return None;
+    }
     Some(tmp)
 }
+/*
 #[allow(unused)]
 fn calc_push(
     idx: usize,
@@ -638,6 +641,11 @@ fn calc_push(
     center: Vector2,
     context: &Context,
 ) -> Option<Vector2> {
+    fn hacky_max_sum(a: Vector2, b: Vector2) -> Vector2 {
+        let sum = a + b;
+        let m = max_vec(a, b);
+        max_vec(sum, m)
+    }
     //0 == lower_side start,
     //1 == upper side start,
     //2 = lower_side end,
@@ -646,29 +654,31 @@ fn calc_push(
     //bottom is inner,
     //left is lower_side,
     //right is upper_side,
-    assert!(top.width > 0.0);
-    assert!(bottom.width > 0.0);
-    assert!(left.width > 0.0);
-    assert!(right.width > 0.0);
-    let out_vec = normalize(&-((array[0] + array[2]) / 2.0 - center)) * bottom.width;
-    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width;
-    let left_vec =normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width;
-    let right_vec =normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width;
+
+    // assert!(top.width > 0.0);
+    //assert!(bottom.width > 0.0);
+    // assert!(left.width > 0.0);
+    //assert!(right.width > 0.0);
+    let out_vec = normalize(&-((array[0] + array[2]) / 2.0 - center)) * bottom.width * 0.5;
+    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width * 0.5;
+    let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width * 1.0;
+    let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width * 1.0;
     let mut out = None;
     if idx == 0 {
-        out = Some(out_vec + left_vec);
+        out = Some(hacky_max_sum(out_vec, left_vec));
     } else if idx == 1 {
-        out = Some(in_vec + left_vec);
+        out = Some(hacky_max_sum(in_vec, left_vec));
     } else if idx == 2 {
-        out = Some(out_vec + right_vec);
+        out = Some(hacky_max_sum(out_vec, right_vec));
     } else if idx == 3 {
-        out = Some(in_vec + right_vec);
+        out = Some(hacky_max_sum(in_vec, right_vec));
     }
-    let t = out?;
-    assert!(length(&t)>0.0);
-    return Some(t);
+    if length(&out?) < 1.0 {
+        return None;
+    }
+    out
 }
-
+*/
 #[allow(unused)]
 fn scale_rect_to_roads(
     base: &Rectangle,
@@ -693,11 +703,7 @@ fn scale_rect_to_roads(
             } else {
                 return None;
             }*/
-            if let Some(p) = calc_push(i, &a, top, bottom, left, right, center, context) {
-                b[i] += p;
-            } else {
-                return None;
-            }
+            b[i] += calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base)?;
         }
         out = b;
         count += 1;
@@ -706,7 +712,7 @@ fn scale_rect_to_roads(
         }
     }
     let _s = noise.perlin(base.center() * 100.0) * 0.01;
-    Some(Rectangle::from(out).scale(1.0))
+    Some(Rectangle::from(out).scale(0.9))
 }
 
 #[allow(unused)]

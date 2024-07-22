@@ -25,12 +25,31 @@ where
         b
     }
 }
+
+#[allow(unused)]
+pub fn max_vec(a: Vector2, b: Vector2) -> Vector2 {
+    if length(&a) > length(&b) {
+        a
+    } else {
+        b
+    }
+}
+
 #[allow(unused)]
 pub fn min<T>(a: T, b: T) -> T
 where
     T: PartialOrd,
 {
     if a > b {
+        b
+    } else {
+        a
+    }
+}
+
+#[allow(unused)]
+pub fn min_vec(a: Vector2, b: Vector2) -> Vector2 {
+    if length(&a) > length(&b) {
         b
     } else {
         a
