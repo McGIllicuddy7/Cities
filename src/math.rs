@@ -4,6 +4,10 @@ use crate::context::*;
 use crate::prof_frame;
 pub type Vector2 = TVec2<f64>;
 #[allow(unused)]
+pub use std::f64::consts::PI;
+#[allow(unused)]
+pub use std::f64::consts::TAU;
+#[allow(unused)]
 pub fn rotate_vector_toward(base: Vector2, target: Vector2, angle: f64) -> Vector2 {
     let s = rotate_vec2(&base, angle);
     let ns = normalize(&s);

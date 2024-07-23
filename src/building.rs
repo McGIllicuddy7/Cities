@@ -54,7 +54,7 @@ impl Building {
             [points[1], points[2], points[3], points[0]]
         }
         fn is_degen_tmp(p: [Vector2; 4]) -> bool {
-            if Building::from(p).area() < 160.0 {
+            if Building::from(p).area() <160.0 {
                 return true;
             }
             let d1 = distance(&p[0], &p[1]);
@@ -68,7 +68,7 @@ impl Building {
         for i in 0..4 {
             for j in 0..4 {
                 if i != j {
-                    if distance(&p0[i], &p0[j]) < 8.0 {
+                    if distance(&p0[i], &p0[j]) < 12.0 {
                         return true;
                     }
                 }

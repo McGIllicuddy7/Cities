@@ -46,7 +46,7 @@ fn connect_points_into_water(start: Vector2, end: Vector2, context: &Context) ->
     let mut points = vec![start];
     let count = (distance(&start, &end) / 10.0).ceil() as usize;
     let delta = (end - start) / (count as f64);
-    let delta_x = rotate_vec2(&normalize(&delta), 90.0);
+    let delta_x = rotate_vec2(&normalize(&delta), PI/2.0);
     let dl = length(&delta);
     let mut current = start;
     for i in 0..count + 8 {
