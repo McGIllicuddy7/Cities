@@ -1,3 +1,4 @@
+
 use std::f64::consts::TAU;
 
 use crate::context::Context;
@@ -54,7 +55,7 @@ impl Building {
             [points[1], points[2], points[3], points[0]]
         }
         fn is_degen_tmp(p: [Vector2; 4]) -> bool {
-            if Building::from(p).area() <160.0 {
+            if Building::from(p).area() <16.0 {
                 return true;
             }
             let d1 = distance(&p[0], &p[1]);
@@ -272,7 +273,7 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
             let theta = angle(&delta, &vec2(1.0, 0.0));
             let rad = length(&delta);
             let max_rad = (context.width) as f64
-                * (0.5 + ((noise.get_value(theta * 2.0) + 1.0) / 2.0).sqrt() * 0.5)
+                * (0.4+ ((noise.get_value(theta * 2.0) + 1.0) / 2.0).powf(1.0/1.2) * 0.6)
                 * scaler
                 * 0.5;
             rad < max_rad
@@ -283,11 +284,6 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
     let mut out = vec![];
     let noise = NoiseGenerator1d::new(TAU * 2.0, 0.5, 12, context);
     for b in buildings {
-        if distance(&b.center_mass(), &context.center())
-            > (context.width / 2) as f64 * scaler * 2_f64.sqrt()
-        {
-            continue;
-        }
         if building_outside(b, scaler, &noise, context) {
             continue;
         } else {

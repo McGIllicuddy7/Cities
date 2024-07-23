@@ -469,10 +469,7 @@ fn calc_push(
     } else if idx == 3 {
         out = Some(hacky_max_sum(in_vec, right_vec));
     }
-    if length(&out?) < 1.0 {
-        return None;
-    }
-    if !rectangle_contains_point(&Rectangle::from(*array), &(array[idx]+out?)){
+    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.1), &(array[idx]+out?)){
         return None;
     }
     out
@@ -498,7 +495,7 @@ fn scale_rect_to_roads(
         let mut b = out;
         for i in 0..4 {
             //b[i] +=  calc_push_imp(i, &a, &[top, bottom, left, right], center, b[i], base)?
-            //b[i] += calc_push(i, &a, top, bottom, left, right, center, context)?;
+            b[i] += calc_push(i, &a, top, bottom, left, right, center, context)?;
         }
         out = b;
         count += 1;
@@ -536,6 +533,7 @@ fn segment_available_locations(
         context,
     );
     if base_opt.is_none() {
+        println!("base opt was none");
         return vec![];
     }
     let base = base_opt.unwrap();
