@@ -54,7 +54,7 @@ impl Road {
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width * 1.0) as f32,
-                raylib::color::Color::WHITE.into(),
+                raylib::color::Color::RED.into(),
             )
         }
     }
@@ -305,7 +305,7 @@ fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
 }
 
 #[allow(unused)]
-fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> {
+fn link_roads(r0: &Road, r1: &Road, idx: usize, angles:&mut [f64],context: &Context) -> Vec<Road> {
     prof_frame!("Road::link_roads()");
     let a = {
         if r0.points.len() > r1.points.len() {
@@ -325,10 +325,20 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, context: &Context) -> Vec<Road> 
     let mut out: Vec<Road> = vec![];
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
+        let theta = angle(&normalize(&(a.points[idx]-context.center())), &vec2(1.0, 0.0));
+
         let width = {
-            if context.get_random_float() > 0.9 || idx % 2 == 0 {
-                context.large_width * 1.0
-            } else {
+            let mut near = false;
+            for j in 0..angles.len(){
+                if angles[j] == theta{
+                    near = true;
+                    angles[j] = angle(&normalize(&(b.points[i]-context.center())), &vec2(1.0, 0.0));
+                    break;
+                }
+            }
+            if near{
+                context.large_width
+            } else{
                 context.small_width
             }
         };
@@ -368,15 +378,16 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
         &rad_noise,
         context,
     );
+    let mut idxes = vec![];
     rings.push(base);
     let base_idx = context.get_random_value(0, 10000) as usize;
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if context.get_random_float() > 0.8 || i % 2 == 0 {
-                context.large_width * 1.0
+            if  i % 2 == 0 {
+                context.large_width
             } else {
-                context.small_width * 1.0
+                context.small_width
             }
         };
         let tmp = generate_ring(
@@ -393,8 +404,16 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
             &tmp,
             &rings[rings.len() - 1],
             i as usize + base_idx,
+            &mut idxes,
             context,
         );
+        if context.get_random_float()<0.4 && ! i == 3{
+            idxes.push(angle(&normalize(&(tmp.points[context.get_random_value(0, tmp.points.len() as i32) as usize]-context.center())),&vec2(1.0,0.0) ));
+        } else if i == 3{
+            for i in 0..8{
+                idxes.push(angle(&normalize(&(tmp.points[context.get_random_value(0, tmp.points.len() as i32) as usize]-context.center())),&vec2(1.0,0.0) ));
+            }
+        }
         rings.push(tmp);
         spines.push(new_spines);
     }
@@ -533,7 +552,7 @@ fn segment_available_locations(
         context,
     );
     if base_opt.is_none() {
-        println!("base opt was none");
+        ///println!("base opt was none");
         return vec![];
     }
     let base = base_opt.unwrap();

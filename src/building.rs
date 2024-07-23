@@ -274,8 +274,7 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
             let rad = length(&delta);
             let max_rad = (context.width) as f64
                 * (0.4+ ((noise.get_value(theta * 2.0) + 1.0) / 2.0).powf(1.0/1.2) * 0.6)
-                * scaler
-                * 0.5;
+                * scaler*0.8;
             rad < max_rad
         };
         outside || !inside

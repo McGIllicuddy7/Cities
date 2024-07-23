@@ -37,10 +37,15 @@ impl Context {
         vec2(self.width as f64 / 2.0, self.height as f64 / 2.0)
     }
     pub fn get_random_value(&self, minimum: i32, maximum: i32) -> i32 {
-        (rand::random::<isize>() % (maximum as isize - minimum as isize) + minimum as isize) as i32
+        let out = (rand::random::<i32>().abs() %(maximum-minimum))+minimum;
+        out
     }
     pub fn get_random_float(&self) -> f64 {
         self.get_random_value(0, 100_000) as f64 / 100_000 as f64
+    }
+    #[allow(unused)]
+    pub fn get_random_angle(&self)->f64{
+        self.get_random_float()*TAU
     }
     #[allow(unused)]
     pub fn get_random_vector(&self) -> Vector2 {
