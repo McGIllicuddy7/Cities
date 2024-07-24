@@ -19,8 +19,11 @@ impl City {
         prof_frame!("City::new()");
         let radius = 510.0 * scaler * 2.5_f64.sqrt();
         let scale = 1.0 / scaler;
+        println!("generate ring system()");
         let rings = road::generate_ring_system(radius, context);
+        println!("collect rings to roads()");
         let roads = road::collect_rings_to_roads(&rings);
+        println!("generate blocks()");
         let blocks = building::generate_blocks(rings, context);
         let buildings = {
             let mut tmp = vec![];
@@ -31,7 +34,9 @@ impl City {
             }
             tmp
         };
+        println!("filter buildings()");
         let buildings = filter_buildings(buildings.as_slice(), scaler, context);
+        println!("purge degenerates()");
         let buildings = purge_degenerates(buildings.as_slice());
         let mut out = Self {
             roads,
@@ -39,10 +44,12 @@ impl City {
             water: vec![],
         }
         .scale(context, scale * 1.0);
+        println!("generate water ways()");
         let water = generate_water_ways(
             WaterGenerationRequest::Coast{dir:East},
             context,
         );
+        println!("climate change()");
         out.buildings = climate_change(&out.buildings, &water);
         out.water = water;
         out

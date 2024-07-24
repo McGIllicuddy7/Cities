@@ -87,7 +87,7 @@ fn generate_river(dir: Direction, context: &Context) -> Vec<Water> {
 
 #[allow(unused)]
 fn generate_coast(dir: Direction, context: &Context) -> Vec<Water> {
-    let delta = 0.25;
+    let delta = 0.125;
     let start = match dir {
         Direction::North => vec2(-WATER_WIDTH, context.height as f64 * (1.0 - delta)),
         Direction::South => vec2(-WATER_WIDTH, context.height as f64 * delta),

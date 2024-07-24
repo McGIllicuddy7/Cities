@@ -280,15 +280,15 @@ fn generate_ring(
     let max_r = radius + disp;
     let theta_disp = TAU / count;
     let theta_offset = (PI / count * 2.0).round() as i32;
-    let theta_base = (tbase_noise.perlin(vec2(min_r / 100.0, max_r / 100.0)) * 0.1);
+    let theta_base = (tbase_noise.perlin(vec2(min_r / 50.0, max_r / 50.0)).powi(2) * 12.0);
     let cx = context.width as f64 / 2.0;
     let cy = context.height as f64 / 2.0;
     for i in 0..count as i32 {
         let theta_0 = theta_disp * (i as f64);
-        let mut d_theta = theta_noise.perlin(vec2(min_r / 32.0, theta_0 / 8.0)) * 2.0;
+        let mut d_theta = theta_noise.perlin(vec2(min_r / 32.0, theta_0 / 8.0)).powi(2)*2.0;
         let theta = theta_0 + d_theta + theta_base;
-        let rad = rad_noise.perlin(vec2(min_r / 32.0, theta / 8.0)).abs() * 160.0
-            + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0*1.1;
+        let rad = rad_noise.perlin(vec2(min_r/32.0, theta/8.0)).powi(2)*600.0
+            + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
     }
@@ -390,7 +390,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let resolution = 40.0;
     let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
     let theta_noise = NoiseGenerator2d::new(5, 100.0, context);
-    let rad_noise = NoiseGenerator2d::new(4, 50.0, context);
+    let rad_noise = NoiseGenerator2d::new(12, 50.0, context);
     let base = generate_ring(
         dradius / 2_f64,
         disp,
@@ -407,7 +407,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if i % 2 == 0 {
+            if i % 4 == 0 {
                 context.large_width
             } else {
                 context.small_width
@@ -426,7 +426,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
         if i % 10 == 0 && !i == 3 {
             idxes.push(context.get_random_angle());
         } else if i == 3 {
-            let count = context.get_random_value(12, 22);
+            let count = context.get_random_value(6,12);
             let base = context.get_random_angle();
             for i in 0..count {
                 idxes.push({
@@ -589,6 +589,9 @@ fn segment_available_locations(
         return vec![];
     }
     let base = base_opt.unwrap();
+    if context.get_random_float() <(1.0-distance(&base.center(),&context.center())/context.width as f64/2.0).powi(2)*0.25{
+        return vec![base];
+    }
     let v0 = base.v0;
     let v1 = base.v1;
     let v2 = base.v2;
