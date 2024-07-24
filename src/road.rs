@@ -499,19 +499,19 @@ fn calc_push(
     //bottom is inner,
     //left is lower_side,
     //right is upper_side,
-
     // assert!(top.width > 0.0);
     //assert!(bottom.width > 0.0);
     // assert!(left.width > 0.0);
     //assert!(right.width > 0.0);
-    let base = normalize(&-((array[0] + array[1]) / 2.0 - context.center()));
+    let c = context.center();
+    let base = normalize(&-((array[0] + array[1]) / 2.0 - c));
     let out_vec = base * bottom.width;
-    //    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width * 0.5;
-    //  let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width * 1.0;
-    // let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width * 1.0;
+    //    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - c)) * top.width * 1.0;
+    //   let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - c)) * left.width * 1.0;
+    //  let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - c)) * right.width * 1.0;
     let in_vec = rotate_vec2(&base, PI) * top.width;
-    let left_vec = rotate_vec2(&base, PI / 2.0) * left.width;
-    let right_vec = rotate_vec2(&base, -PI / 2.0) * right.width;
+    let left_vec = rotate_vec2(&base, -PI / 2.0) * left.width;
+    let right_vec = rotate_vec2(&base, PI / 2.0) * right.width;
     let mut out = None;
     if idx == 0 {
         out = Some(hacky_max_sum(out_vec, left_vec));
@@ -522,7 +522,7 @@ fn calc_push(
     } else if idx == 3 {
         out = Some(hacky_max_sum(in_vec, right_vec));
     }
-    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.1), &(array[idx] + out?)) {
+    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.2), &(array[idx] + out?)) {
         return None;
     }
     out
