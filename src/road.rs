@@ -143,28 +143,28 @@ impl Road {
     pub fn get_start_offset_upper(&self) -> Vector2 {
         let v = self.after_start() - self.get_start();
         let t = v.normalize();
-        let rot = rotate_vec2(&t, -PI/2.0);
+        let rot = rotate_vec2(&t, -PI / 2.0);
         -rot * self.width
     }
     #[allow(unused)]
     pub fn get_start_offset_lower(&self) -> Vector2 {
         let v = self.after_start() - self.get_start();
         let t = v.normalize();
-        let rot = rotate_vec2(&t, PI/2.0);
+        let rot = rotate_vec2(&t, PI / 2.0);
         -rot * self.width
     }
     #[allow(unused)]
     pub fn get_end_offset_upper(&self) -> Vector2 {
         let v = self.after_end() - self.get_end();
         let t = v.normalize();
-        let rot = rotate_vec2(&t, -PI/2.0);
+        let rot = rotate_vec2(&t, -PI / 2.0);
         -rot * self.width
     }
     #[allow(unused)]
     pub fn get_end_offset_lower(&self) -> Vector2 {
         let v = self.after_end() - self.get_end();
         let t = v.normalize();
-        let rot = rotate_vec2(&t, -PI/2.0);
+        let rot = rotate_vec2(&t, -PI / 2.0);
         -rot * self.width
     }
     #[allow(unused)]
@@ -188,7 +188,7 @@ impl Road {
     fn normal_from_start_idx(&self, idx: usize) -> Vector2 {
         prof_frame!("Road::normal_from_start()");
         let delta = normalize(&(self.points[idx + 1] - self.points[idx]));
-        return rotate_vec2(&delta, PI/2.0);
+        return rotate_vec2(&delta, PI / 2.0);
     }
     #[allow(unused)]
     pub fn get_normal_at_location_toward(
@@ -305,7 +305,29 @@ fn link_points_with_road(v0: Vector2, v1: Vector2, width: f64) -> Road {
 }
 
 #[allow(unused)]
-fn link_roads(r0: &Road, r1: &Road, idx: usize, angles:&mut [f64],context: &Context) -> Vec<Road> {
+fn link_roads(
+    r0: &Road,
+    r1: &Road,
+    idx: usize,
+    angles: &mut [f64],
+    context: &Context,
+) -> Vec<Road> {
+    fn is_nearest(idx: usize, points: &[Vector2], theta: f64, context: &Context) -> bool {
+        let mut min = 10000.0;
+        let mut min_idx = 0;
+        for i in 0..points.len() {
+            let phi = angle(&normalize(&(points[i] - context.center())), &vec2(1.0, 0.0));
+            if (theta - phi).abs() < min {
+                min = (theta - phi).abs();
+                min_idx = i;
+            }
+        }
+        let t = angle(
+            &normalize(&(points[idx] - context.center())),
+            &vec2(1.0, 0.0),
+        );
+        idx == min_idx
+    }
     prof_frame!("Road::link_roads()");
     let a = {
         if r0.points.len() > r1.points.len() {
@@ -323,32 +345,28 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, angles:&mut [f64],context: &Cont
     };
     let ratio = a.points.len() as f64 / b.points.len() as f64;
     let mut out: Vec<Road> = vec![];
-    let mut hit_array = vec![false; angles.len()];
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
-        let theta = angle(&normalize(&(a.points[idx]-context.center())), &vec2(1.0, 0.0));
+        let theta = angle(
+            &normalize(&(a.points[idx] - context.center())),
+            &vec2(1.0, 0.0),
+        );
 
         let width = {
             let mut near = false;
-            for j in 0..angles.len(){
-                if (angles[j]-theta).abs()<0.05{
+            for j in 0..angles.len() {
+                if is_nearest(i, &a.points, angles[j], context) {
                     near = true;
-                    hit_array[j] = true;
                     break;
                 }
             }
-            if near{
+            if near {
                 context.large_width
-            } else{
+            } else {
                 context.small_width
             }
         };
         out.push(link_points_with_road(a.points[idx], b.points[i], width));
-    }
-    for i in 0..hit_array.len(){
-        if !hit_array[i]{
-            angles[i] = -800.0;
-        }
     }
     out
 }
@@ -390,7 +408,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if  i%5 == 0 {
+            if i % 5 == 0 {
                 context.large_width
             } else {
                 context.small_width
@@ -406,6 +424,23 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
             &rad_noise,
             context,
         );
+        if i % 100000 == 0 && !i == 3 {
+            idxes.push(context.get_random_angle());
+        } else if i == 3 {
+            let count = context.get_random_value(16, 32);
+            let base = context.get_random_angle();
+            for i in 0..count {
+                idxes.push({
+                    let mut tmp = i as f64 * TAU / count as f64
+                        + (context.get_random_float() * 2.0 - 1.0) / 100.0
+                        + base;
+                    if tmp > TAU {
+                        tmp -= TAU
+                    };
+                    tmp
+                });
+            }
+        }
         let new_spines = link_roads(
             &tmp,
             &rings[rings.len() - 1],
@@ -413,13 +448,6 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
             &mut idxes,
             context,
         );
-        if i%100000 == 0 && ! i == 3{
-            idxes.push(angle(&normalize(&(tmp.points[context.get_random_value(0, tmp.points.len() as i32) as usize]-context.center())),&vec2(1.0,0.0) ));
-        } else if i == 3{
-            for i in 0..context.get_random_value(10, 22){
-                idxes.push(angle(&normalize(&(tmp.points[context.get_random_value(0, tmp.points.len() as i32) as usize]-context.center())),&vec2(1.0,0.0) ));
-            }
-        }
         rings.push(tmp);
         spines.push(new_spines);
     }
@@ -476,14 +504,14 @@ fn calc_push(
     //assert!(bottom.width > 0.0);
     // assert!(left.width > 0.0);
     //assert!(right.width > 0.0);
-    let base = normalize(&-((array[0] + array[2]) / 2.0 - context.center()));
-    let out_vec =  base* bottom.width ;
-    //let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width * 0.5;
-    //let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width * 1.0;
-    //let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width * 1.0;
-    let in_vec = rotate_vec2(&base, PI)*top.width;
-    let left_vec = rotate_vec2(&base, -PI/2.0)*left.width;
-    let right_vec = rotate_vec2(&base, PI/2.0)*right.width;
+    let base = normalize(&-((array[0] + array[1]) / 2.0 - context.center()));
+    let out_vec = base * bottom.width;
+    //    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width * 0.5;
+    //  let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width * 1.0;
+    // let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width * 1.0;
+    let in_vec = rotate_vec2(&base, PI) * top.width;
+    let left_vec = rotate_vec2(&base, PI / 2.0) * left.width;
+    let right_vec = rotate_vec2(&base, -PI / 2.0) * right.width;
     let mut out = None;
     if idx == 0 {
         out = Some(hacky_max_sum(out_vec, left_vec));
@@ -494,7 +522,7 @@ fn calc_push(
     } else if idx == 3 {
         out = Some(hacky_max_sum(in_vec, right_vec));
     }
-    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.1), &(array[idx]+out?)){
+    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.1), &(array[idx] + out?)) {
         return None;
     }
     out
