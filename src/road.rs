@@ -54,7 +54,7 @@ impl Road {
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width * 1.0) as f32,
-                raylib::color::Color::WHITE.into(),
+                raylib::color::Color::RED.into(),
             )
         }
     }
@@ -314,19 +314,18 @@ fn link_roads(
 ) -> Vec<Road> {
     fn is_nearest(idx: usize, points: &[Vector2], theta: f64, context: &Context) -> bool {
         let mut min = 10000.0;
-        let mut min_idx = 0;
         for i in 0..points.len() {
             let phi = angle(&normalize(&(points[i] - context.center())), &vec2(1.0, 0.0));
             if (theta - phi).abs() < min {
                 min = (theta - phi).abs();
-                min_idx = i;
+                //min_idx = i;
             }
         }
         let t = angle(
             &normalize(&(points[idx] - context.center())),
             &vec2(1.0, 0.0),
         );
-        idx == min_idx
+        (angle(&normalize(&(points[idx] - context.center())), &vec2(1.0, 0.0))-min).abs()<0.1
     }
     prof_frame!("Road::link_roads()");
     let a = {
@@ -503,15 +502,15 @@ fn calc_push(
     //assert!(bottom.width > 0.0);
     // assert!(left.width > 0.0);
     //assert!(right.width > 0.0);
-    let c = context.center();
-    let base = normalize(&-((array[0] + array[1]) / 2.0 - c));
+    let c = center;
+    let base = -rotate_vec2(&normalize(&((array[0] + array[1]) / 2.0 - c)), -PI/2.0);
     let out_vec = base * bottom.width;
-    //    let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - c)) * top.width * 1.0;
-    //   let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - c)) * left.width * 1.0;
-    //  let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - c)) * right.width * 1.0;
+    //let in_vec = -normalize(&((array[1] + array[2]) / 2.0 - c)) * top.width * 1.0;
+    //let left_vec =- normalize(&((array[0] + array[1]) / 2.0 - c)) * left.width * 1.0;
+    //let right_vec = -normalize(&((array[2] + array[3]) / 2.0 - c)) * right.width * 1.0;
     let in_vec = rotate_vec2(&base, PI) * top.width;
-    let left_vec = rotate_vec2(&base, -PI / 2.0) * left.width;
-    let right_vec = rotate_vec2(&base, PI / 2.0) * right.width;
+    let left_vec = rotate_vec2(&base, PI / 2.0) * left.width;
+    let right_vec = rotate_vec2(&base,- PI / 2.0) * right.width;
     let mut out = None;
     if idx == 0 {
         out = Some(hacky_max_sum(out_vec, left_vec));
@@ -522,7 +521,7 @@ fn calc_push(
     } else if idx == 3 {
         out = Some(hacky_max_sum(in_vec, right_vec));
     }
-    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.2), &(array[idx] + out?)) {
+    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.1), &(array[idx] + out?)) {
         return None;
     }
     out
