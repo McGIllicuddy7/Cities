@@ -54,7 +54,7 @@ impl Road {
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width * 1.0) as f32,
-                raylib::color::Color::RED.into(),
+                raylib::color::Color::WHITE.into(),
             )
         }
     }
@@ -323,6 +323,7 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, angles:&mut [f64],context: &Cont
     };
     let ratio = a.points.len() as f64 / b.points.len() as f64;
     let mut out: Vec<Road> = vec![];
+    let mut hit_array = vec![false; angles.len()];
     for i in 0..b.points.len() {
         let idx = (i as f64 * ratio).round() as usize % a.points.len();
         let theta = angle(&normalize(&(a.points[idx]-context.center())), &vec2(1.0, 0.0));
@@ -330,9 +331,9 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, angles:&mut [f64],context: &Cont
         let width = {
             let mut near = false;
             for j in 0..angles.len(){
-                if angles[j] == theta{
+                if (angles[j]-theta).abs()<0.05{
                     near = true;
-                    angles[j] = angle(&normalize(&(b.points[i]-context.center())), &vec2(1.0, 0.0));
+                    hit_array[j] = true;
                     break;
                 }
             }
@@ -343,6 +344,11 @@ fn link_roads(r0: &Road, r1: &Road, idx: usize, angles:&mut [f64],context: &Cont
             }
         };
         out.push(link_points_with_road(a.points[idx], b.points[i], width));
+    }
+    for i in 0..hit_array.len(){
+        if !hit_array[i]{
+            angles[i] = -800.0;
+        }
     }
     out
 }
@@ -364,7 +370,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let dradius = 50.0;
     let count = (max_radius / dradius) as i32;
     let disp = 10.0;
-    let resolution = 50.0;
+    let resolution = 40.0;
     let theta_base_noise = NoiseGenerator2d::new(5, 100.0, context);
     let theta_noise = NoiseGenerator2d::new(5, 100.0, context);
     let rad_noise = NoiseGenerator2d::new(4, 50.0, context);
@@ -384,7 +390,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if  i % 2 == 0 {
+            if  i%5 == 0 {
                 context.large_width
             } else {
                 context.small_width
@@ -407,10 +413,10 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
             &mut idxes,
             context,
         );
-        if context.get_random_float()<0.4 && ! i == 3{
+        if i%100000 == 0 && ! i == 3{
             idxes.push(angle(&normalize(&(tmp.points[context.get_random_value(0, tmp.points.len() as i32) as usize]-context.center())),&vec2(1.0,0.0) ));
         } else if i == 3{
-            for i in 0..8{
+            for i in 0..context.get_random_value(10, 22){
                 idxes.push(angle(&normalize(&(tmp.points[context.get_random_value(0, tmp.points.len() as i32) as usize]-context.center())),&vec2(1.0,0.0) ));
             }
         }
@@ -470,14 +476,14 @@ fn calc_push(
     //assert!(bottom.width > 0.0);
     // assert!(left.width > 0.0);
     //assert!(right.width > 0.0);
-    let base = normalize(&-((array[0] + array[2]) / 2.0 - center));
+    let base = normalize(&-((array[0] + array[2]) / 2.0 - context.center()));
     let out_vec =  base* bottom.width ;
     //let in_vec = normalize(&-((array[1] + array[2]) / 2.0 - center)) * top.width * 0.5;
     //let left_vec = normalize(&-((array[0] + array[1]) / 2.0 - center)) * left.width * 1.0;
     //let right_vec = normalize(&-((array[2] + array[3]) / 2.0 - center)) * right.width * 1.0;
     let in_vec = rotate_vec2(&base, PI)*top.width;
-    let left_vec = rotate_vec2(&base, PI/2.0)*left.width;
-    let right_vec = rotate_vec2(&base, -PI/2.0)*right.width;
+    let left_vec = rotate_vec2(&base, -PI/2.0)*left.width;
+    let right_vec = rotate_vec2(&base, PI/2.0)*right.width;
     let mut out = None;
     if idx == 0 {
         out = Some(hacky_max_sum(out_vec, left_vec));

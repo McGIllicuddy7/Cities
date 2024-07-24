@@ -9,7 +9,7 @@ mod water;
 use crate::context::Context;
 pub fn main() {
     let t = private_profile_start("main");
-    let context = Context::new(1000, 1000, 0.85, 0.85, 1.0, 1.0, 1.0, 8.0);
+    let context = Context::new(1000, 1000, 1.0, 0.85, 1.0, 2.0, 2.0, 2.0);
     let c = city::City::new(2.0, &context);
     println!("profile finished\n");
     drop(t);

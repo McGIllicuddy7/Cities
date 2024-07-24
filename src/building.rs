@@ -69,7 +69,7 @@ impl Building {
         for i in 0..4 {
             for j in 0..4 {
                 if i != j {
-                    if distance(&p0[i], &p0[j]) < 12.0 {
+                    if distance(&p0[i], &p0[j]) < 8.0 {
                         return true;
                     }
                 }
