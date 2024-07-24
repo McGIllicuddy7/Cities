@@ -55,7 +55,7 @@ impl Building {
             [points[1], points[2], points[3], points[0]]
         }
         fn is_degen_tmp(p: [Vector2; 4]) -> bool {
-            if Building::from(p).area() <16.0 {
+            if Building::from(p).area() <80.0 {
                 return true;
             }
             let d1 = distance(&p[0], &p[1]);
@@ -69,7 +69,7 @@ impl Building {
         for i in 0..4 {
             for j in 0..4 {
                 if i != j {
-                    if distance(&p0[i], &p0[j]) < 8.0 {
+                    if distance(&p0[i], &p0[j]) < 7.0 {
                         return true;
                     }
                 }
@@ -272,16 +272,16 @@ pub fn filter_buildings(buildings: &[Building], scaler: f64, context: &Context) 
             let delta = b.center_mass() - context.center();
             let theta = angle(&delta, &vec2(1.0, 0.0));
             let rad = length(&delta);
-            let max_rad = (context.width) as f64
-                * (0.4+ ((noise.get_value(theta * 2.0) + 1.0) / 2.0).powf(1.0/1.2) * 0.6)
-                * scaler*0.8;
+            let max_rad = (context.width/2) as f64
+                * (((noise.get_value(theta) + 1.0) / 2.0).sqrt() * 0.2+0.8)
+                * scaler*1.4;
             rad < max_rad
         };
         outside || !inside
     }
     prof_frame!("Building::filter_buildings()");
     let mut out = vec![];
-    let noise = NoiseGenerator1d::new(TAU * 2.0, 0.5, 12, context);
+    let noise = NoiseGenerator1d::new(TAU ,PI/8.0, 320, context);
     for b in buildings {
         if building_outside(b, scaler, &noise, context) {
             continue;

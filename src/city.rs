@@ -4,7 +4,7 @@ use crate::math::*;
 use crate::prof_frame;
 use crate::road::Road;
 #[allow(unused)]
-use crate::water::{climate_change, generate_water_ways, Direction, WaterGenerationRequest};
+use crate::water::{climate_change, generate_water_ways, Direction::*, WaterGenerationRequest};
 use crate::{building, road};
 #[allow(unused)]
 pub struct City {
@@ -40,7 +40,7 @@ impl City {
         }
         .scale(context, scale * 1.0);
         let water = generate_water_ways(
-            WaterGenerationRequest::None,
+            WaterGenerationRequest::Coast{dir:East},
             context,
         );
         out.buildings = climate_change(&out.buildings, &water);

@@ -54,7 +54,7 @@ impl Road {
                 to_raylib_vec(s),
                 to_raylib_vec(e),
                 (self.width * 1.0) as f32,
-                raylib::color::Color::RED.into(),
+                raylib::color::Color::WHITE.into(),
             )
         }
     }
@@ -288,7 +288,7 @@ fn generate_ring(
         let mut d_theta = theta_noise.perlin(vec2(min_r / 32.0, theta_0 / 8.0)) * 2.0;
         let theta = theta_0 + d_theta + theta_base;
         let rad = rad_noise.perlin(vec2(min_r / 32.0, theta / 8.0)).abs() * 160.0
-            + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0;
+            + context.get_random_value(min_r as i32 * 1000, max_r as i32 * 1000) as f64 / 1000.0*1.1;
         let p = vec2(theta.cos() * rad + cx, theta.sin() * rad + cy);
         points.push(p);
     }
@@ -384,7 +384,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     let mut out = vec![];
     let mut rings = vec![];
     let mut spines = vec![];
-    let dradius = 50.0;
+    let dradius = 40.0;
     let count = (max_radius / dradius) as i32;
     let disp = 10.0;
     let resolution = 40.0;
@@ -407,7 +407,7 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
     for i in 1..count {
         let radius = i as f64 * dradius;
         let ring_width = {
-            if i % 5 == 0 {
+            if i % 2 == 0 {
                 context.large_width
             } else {
                 context.small_width
@@ -423,10 +423,10 @@ pub fn generate_ring_system(max_radius: f64, context: &Context) -> Vec<Ring> {
             &rad_noise,
             context,
         );
-        if i % 100000 == 0 && !i == 3 {
+        if i % 10 == 0 && !i == 3 {
             idxes.push(context.get_random_angle());
         } else if i == 3 {
-            let count = context.get_random_value(16, 32);
+            let count = context.get_random_value(12, 22);
             let base = context.get_random_angle();
             for i in 0..count {
                 idxes.push({
@@ -503,26 +503,26 @@ fn calc_push(
     // assert!(left.width > 0.0);
     //assert!(right.width > 0.0);
     let c = center;
-    let base = -rotate_vec2(&normalize(&((array[0] + array[1]) / 2.0 - c)), -PI/2.0);
+    let base = -normalize(&((array[0] + array[1]) / 2.0 - c));
     let out_vec = base * bottom.width;
     //let in_vec = -normalize(&((array[1] + array[2]) / 2.0 - c)) * top.width * 1.0;
     //let left_vec =- normalize(&((array[0] + array[1]) / 2.0 - c)) * left.width * 1.0;
     //let right_vec = -normalize(&((array[2] + array[3]) / 2.0 - c)) * right.width * 1.0;
     let in_vec = rotate_vec2(&base, PI) * top.width;
     let left_vec = rotate_vec2(&base, PI / 2.0) * left.width;
-    let right_vec = rotate_vec2(&base,- PI / 2.0) * right.width;
+    let right_vec = rotate_vec2(&base, -PI / 2.0) * right.width;
     let mut out = None;
     if idx == 0 {
-        out = Some(hacky_max_sum(out_vec, left_vec));
-    } else if idx == 1 {
-        out = Some(hacky_max_sum(in_vec, left_vec));
-    } else if idx == 2 {
         out = Some(hacky_max_sum(out_vec, right_vec));
-    } else if idx == 3 {
+    } else if idx == 1 {
+        out = Some(hacky_max_sum(out_vec, left_vec));
+    } else if idx == 2 {
         out = Some(hacky_max_sum(in_vec, right_vec));
+    } else if idx == 3 {
+        out = Some(hacky_max_sum(in_vec, left_vec));
     }
-    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.1), &(array[idx] + out?)) {
-        return None;
+    if !rectangle_contains_point(&Rectangle::from(*array).scale(1.0), &(array[idx] + out?)) {
+        return None
     }
     out
 }
