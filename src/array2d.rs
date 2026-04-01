@@ -1,11 +1,7 @@
-use core::f32;
 use std::{
     ops::{Index, IndexMut},
     sync::Arc,
 };
-
-use rand::random;
-use raylib::math::Vector2;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Array2d<T> {

@@ -44,7 +44,7 @@ impl Collider2D {
         ]
     }
 
-    pub fn sap_vectors(&self) -> [Vector2; 8] {
+    pub fn sap_vectors(&self) -> [Vector2; 12] {
         [
             Vector2::new(-self.width / 2., -self.height / 2.)
                 .rotated(self.rotation)
@@ -70,6 +70,10 @@ impl Collider2D {
             Vector2::new(0., self.height / 2.)
                 .rotated(self.rotation)
                 .normalized(),
+            Vector2::new(1., 0.).rotated(self.rotation),
+            Vector2::new(0., 1.).rotated(self.rotation),
+            Vector2::new(-1., 0.).rotated(self.rotation),
+            Vector2::new(0., 1.).rotated(self.rotation),
         ]
     }
 
@@ -82,7 +86,7 @@ impl Collider2D {
             let mut smax = smin;
             let mut omin = overts[0].dot(*i);
             let mut omax = omin;
-            for j in 1..4 {
+            for j in 0..4 {
                 let d = sverts[j].dot(*i);
                 if d > smax {
                     smax = d;
@@ -91,7 +95,7 @@ impl Collider2D {
                     smin = d;
                 }
             }
-            for j in 1..4 {
+            for j in 0..4 {
                 let d = overts[j].dot(*i);
                 if d > omax {
                     omax = d;
@@ -100,7 +104,7 @@ impl Collider2D {
                     omin = d;
                 }
             }
-            if smin < omin && smax < omin || smax > omax && smin > omax {
+            if (smin < omin && smax < omin) || (smax > omax && smin > omax) {
                 return false;
             }
         }
@@ -162,6 +166,25 @@ impl Collider2D {
             }
             None
         }
+    }
+
+    pub fn point_distance_to(&self, p: Vector2) -> f32 {
+        let mut out = 1000000.0;
+        let v = self.as_vertices();
+        for i in 0..4 {
+            for j in 0..4 {
+                if i == j {
+                    continue;
+                }
+                let p1 = v[i];
+                let p2 = v[j];
+                let dist = point_distance_to_line_2d(p, p1, p2);
+                if dist < out {
+                    out = dist;
+                }
+            }
+        }
+        out
     }
 }
 
@@ -310,7 +333,7 @@ impl Collider3D {
                     omin = d;
                 }
             }
-            if smin < omin && smax < omin || smax > omax && smin > omax {
+            if (smin < omin && smax < omin) || (smax > omax && smin > omax) {
                 return false;
             }
         }
@@ -396,6 +419,28 @@ pub fn newtons_method_2d<T: FnMut(Vector2) -> f32>(mut func: T) -> (Vector2, f32
     }
 }
 
+pub fn newtons_method_1d<T: FnMut(f32) -> f32>(mut func: T) -> (f32, f32) {
+    let mut start = 0.0;
+    let eps = 0.01;
+    let mut count = 0;
+    loop {
+        let base = func(start);
+        let d = ((func(start + eps) - base) - (func(start - eps) - base)) / 2.;
+        let mut hit = false;
+        if d.abs() > 0.001 {
+            hit = true;
+            start += base / d;
+        }
+        if !hit {
+            break (start, base);
+        }
+        count += 1;
+        if count > 100 {
+            break (start, base);
+        }
+    }
+}
+
 pub fn newtons_method_3d<T: FnMut(Vector3) -> f32>(mut func: T) -> (Vector3, f32) {
     let mut start = Vector3::zero();
     let epsx = Vector3::new(0.01, 0.00, 0.0);
@@ -463,4 +508,10 @@ pub fn newtons_method<const COUNT: usize, T: FnMut(&[f32; COUNT]) -> f32>(
             break (start, base);
         }
     }
+}
+
+pub fn point_distance_to_line_2d(p0: Vector2, p1: Vector2, p2: Vector2) -> f32 {
+    let num = ((p2.y - p1.y) * p0.x - (p2.x - p1.x) * p0.y + p2.x * p1.y - p2.y * p1.x).abs();
+    let denom = ((p2.y - p1.y) * (p2.y - p1.y) + (p2.x - p1.x) * (p2.x - p1.x)).sqrt();
+    num / denom
 }
