@@ -314,6 +314,7 @@ pub struct City {
     pub width: i32,
     pub height: i32,
     pub roads: Vec<Road>,
+    pub water: Vec<Road>,
 }
 
 impl City {
@@ -325,6 +326,7 @@ impl City {
             height: 0,
             roads: Vec::new(),
             occupied: Array2d::from_array([[false; 10]; 10]),
+            water: Vec::new(),
         }
     }
 
@@ -448,14 +450,13 @@ pub fn generate_roads(field: &VectorField, scale: f32) -> (Vec<Road>, Array2d<bo
                 ));
             }
         }
-        for x in 0..0 {
+        for _ in 0..0 {
             for i in out.clone() {
                 out.push(i);
             }
         }
         out
     };
-    println!("gen done");
     while !starting_points.is_empty() {
         let (mut x, mut y) = rand_select(&mut starting_points);
         let start = (x, y);
@@ -565,11 +566,10 @@ pub fn generate_roads(field: &VectorField, scale: f32) -> (Vec<Road>, Array2d<bo
         }
         //  println!("{}", starting_points.len());
     }
-    println!("{:#?}", out.len());
     (out, hits)
 }
 
-pub fn generate_city(width: i32, height: i32) -> City {
+pub fn generate_city_base(width: i32, height: i32) -> City {
     let mut out = City::new();
     let div = 10;
     let vf = generate_voronoish_count(width / div, height / div, (height * width) / (div * div));
@@ -695,8 +695,8 @@ impl City {
             }
         }
         for i in &self.roads {
-            for j in 0..i.points.len() - 1 {
-                //    out.draw_line_ex(i.points[j], i.points[j + 1], 2, Color::LIGHTGRAY);
+            for _j in 0..i.points.len() - 1 {
+                //    out.draw_line_ex(i.points[_j], i.points[_j + 1], 2, Color::LIGHTGRAY);
             }
         }
         out.export_image(name);
