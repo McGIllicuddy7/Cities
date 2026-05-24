@@ -53,7 +53,10 @@ pub fn generate_voronoi(width: i32, height: i32) -> Voronoi {
         data: data.into_boxed_slice(),
         point_set: Vec::new(),
     };
-    subdivide_voronoi(&out, 0, 2);
+    //let d = (width * height).isqrt();
+    //let depth = (d / 1000 + 1);
+    let depth = 2;
+    subdivide_voronoi(&out, 0, depth, true);
     out
 }
 
@@ -154,14 +157,24 @@ pub fn u32_to_color(v: u32) -> Color {
     out
 }
 
-pub fn subdivide_voronoi(voronoi: &Voronoi, base: u32, depth: i32) {
-    let points = masked_subdivide(base, voronoi, if depth > 0 { 4 } else { 4 });
+pub fn subdivide_voronoi(voronoi: &Voronoi, base: u32, depth: i32, first: bool) {
+    let points = masked_subdivide(
+        base,
+        voronoi,
+        if first {
+            let tmp = ((voronoi.width * voronoi.height).isqrt() / 250).clamp(0, 300);
+            println!("tmp:{tmp}");
+            tmp
+        } else {
+            4
+        },
+    );
     if depth > 0 {
         for i in &points {
             expand_borders_for(voronoi, *i, 1);
         }
         for i in points {
-            subdivide_voronoi(voronoi, i, depth - 1);
+            subdivide_voronoi(voronoi, i, depth - 1, false);
         }
     }
 }
