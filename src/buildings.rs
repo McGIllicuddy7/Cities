@@ -6,7 +6,12 @@ use std::{
 
 use rand::random;
 use raylib::{color::Color, math::Vector2, texture::Image};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelBridge,
+    ParallelIterator,
+};
+
+use crate::utils::{ConcurrentHashMap, ConcurrentHashSet, ConcurrentList};
 
 pub struct Voronoi {
     pub next_idx: Mutex<u32>,
@@ -94,10 +99,11 @@ pub fn masked_subdivide(mask: u32, voronoi: &Voronoi, sv: i32) -> Vec<u32> {
     let vx = Vector2::new(1.0, 0.0).rotated(angle) * delta_x as f32;
     let vy = Vector2::new(0., 1.0).rotated(angle) * delta_y as f32;
     let base = Vector2::new(min_x as f32, min_y as f32);
+    let tmul = if sv <= 2 { 1. } else { 1. };
     for i in -1..=sv {
         for j in -1..=sv {
-            let x_mul = (j as f32 - (random::<u64>() % 100) as f32 / 200. + 0.75);
-            let y_mul = (i as f32 - (random::<u64>() % 100) as f32 / 200. + 0.75);
+            let x_mul = (j as f32 - ((random::<u64>() % 100) as f32 / 200. - 0.25) * tmul + 0.5);
+            let y_mul = (i as f32 - ((random::<u64>() % 100) as f32 / 200. - 0.25) * tmul + 0.5);
             // println!("{}, {}", x_mul, y_mul);
             let point = vx * x_mul + vy * y_mul + base;
             let (x, y) = (point.x as i32, point.y as i32);
@@ -108,7 +114,7 @@ pub fn masked_subdivide(mask: u32, voronoi: &Voronoi, sv: i32) -> Vec<u32> {
             list.push(p);
         }
     }
-    (min_y..=max_y).into_par_iter().for_each(|y| {
+    (min_y..=max_y).for_each(|y| {
         for x in min_x..=max_x {
             if voronoi.get(x, y) != mask {
                 continue;
@@ -162,26 +168,34 @@ pub fn subdivide_voronoi(voronoi: &Voronoi, base: u32, depth: i32, first: bool) 
         base,
         voronoi,
         if first {
-            let tmp = ((voronoi.width * voronoi.height).isqrt() / 250).clamp(0, 300);
+            let tmp = ((voronoi.width * voronoi.height).isqrt() / 180).clamp(0, 300);
             println!("tmp:{tmp}");
             tmp
-        } else {
+        } else if depth > 0 {
             4
+        } else {
+            2
         },
     );
     if depth > 0 {
         for i in &points {
             expand_borders_for(voronoi, *i, 1);
         }
-        for i in points {
-            subdivide_voronoi(voronoi, i, depth - 1, false);
+        if first {
+            points.par_iter().for_each(|i| {
+                subdivide_voronoi(voronoi, *i, depth - 1, false);
+            });
+        } else {
+            points.iter().for_each(|i| {
+                subdivide_voronoi(voronoi, *i, depth - 1, false);
+            });
         }
     }
 }
 
 pub fn expand_borders_for(voronoi: &Voronoi, base: u32, road_size: i32) {
-    let mut to_set = Vec::new();
-    for y in 0..voronoi.height {
+    let to_set = ConcurrentList::new();
+    (0..voronoi.height).for_each(|y| {
         for x in 0..voronoi.width {
             if voronoi.get(x, y) != base {
                 continue;
@@ -202,10 +216,10 @@ pub fn expand_borders_for(voronoi: &Voronoi, base: u32, road_size: i32) {
                 to_set.push((x, y));
             }
         }
-    }
-    for (x, y) in to_set {
-        voronoi.set(x, y, 0);
-    }
+    });
+    to_set.lock().par_iter().for_each(|(x, y)| {
+        voronoi.set(*x, *y, 0);
+    });
 }
 #[derive(Clone, Debug)]
 pub struct Vertex {
@@ -239,9 +253,10 @@ pub fn setup_city_collection(width: i32, height: i32) -> CityCollection {
 }
 
 pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointCollection>) {
-    let mut list = Vec::new();
-    let mut point_set = HashMap::new();
-    for y in 0..vor.height {
+    println!("starting vertex calculation");
+    let list = ConcurrentList::new();
+    let point_set = ConcurrentHashMap::new();
+    (0..vor.height).into_par_iter().for_each(|y| {
         for x in 0..vor.width {
             let v0 = vor.get(x, y);
             if !point_set.contains_key(&v0) {
@@ -253,7 +268,8 @@ pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointColl
                     },
                 );
             }
-            point_set.get_mut(&v0).unwrap().points.push((x, y));
+            //  point_set.get_mut(&v0).unwrap().points.push((x, y));
+            point_set.with_mut(&v0, |_, points| points.unwrap().points.push((x, y)));
             let mut kinds = Vec::new();
             for dy in -2..=2 {
                 for dx in -2..=2 {
@@ -274,22 +290,25 @@ pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointColl
                 });
             }
         }
-    }
-    let mut list2: Vec<Vertex> = Vec::new();
-    for i in &mut list {
+    });
+    println!("set up done");
+    let list2: ConcurrentList<Vertex> = ConcurrentList::new();
+    list.lock().par_iter_mut().for_each(|i| {
         i.borders.sort();
-    }
-    let mut hs = HashSet::new();
-    for i in &list {
+    });
+    println!("borders sorted");
+    let hs = ConcurrentHashSet::new();
+    let lck = list.lock();
+    lck.par_iter().for_each(|i| {
         let mut center = (0, 0);
         let mut count = 0;
         let mut b2 = i.borders.clone();
-        for j in &list2 {
+        for j in list2.lock().iter() {
             if j.borders == i.borders {
                 continue;
             }
         }
-        for j in &list {
+        for j in lck.iter() {
             if j.borders == i.borders {
                 center.0 += j.x;
                 center.1 += j.y;
@@ -300,7 +319,7 @@ pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointColl
         center.0 /= count;
         center.1 /= count;
         if hs.contains(&center) {
-            continue;
+            return;
         }
         hs.insert(center);
         list2.push(Vertex {
@@ -308,14 +327,16 @@ pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointColl
             y: center.1,
             borders: b2,
         });
-    }
-    list = list2;
-    let mut list2 = Vec::new();
-    let mut done_set = HashSet::new();
-
-    for i in 0..list.len() {
+    });
+    println!("shift completed");
+    let list = list2;
+    let list2 = ConcurrentList::new();
+    let done_set = ConcurrentHashSet::new();
+    let list = list.lock();
+    println!("testing 1 2 3");
+    (0..list.len()).into_par_iter().for_each(|i| {
         if done_set.contains(&i) {
-            continue;
+            return;
         }
         done_set.insert(i);
         let ax = list[i].x;
@@ -347,14 +368,19 @@ pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointColl
             y: center.1,
             borders: b2,
         });
-    }
-    list = list2;
-    for i in &list {
+    });
+    let list = list2;
+    println!("testing 4 5 6");
+    for i in list.lock().iter() {
         for j in &i.borders {
-            point_set.get_mut(j).unwrap().vertices.push(i.clone());
+            // point_set.get_mut(j).unwrap().vertices.push(i.clone());
+            point_set.with_mut(j, |_, v| {
+                v.unwrap().vertices.push(i.clone());
+            })
         }
     }
-    for (_, col) in &mut point_set {
+    println!("testing 7 8 9");
+    point_set.lock().par_iter_mut().for_each(|(_, col)| {
         let mut cx = 0;
         let mut cy = 0;
         for i in &col.points {
@@ -379,9 +405,11 @@ pub fn calculate_vertices(vor: &Voronoi) -> (Vec<Vertex>, HashMap<u32, PointColl
             let t2 = v2.y.atan2(v2.x);
             t1.partial_cmp(&t2).unwrap()
         });
-    }
-    (list, point_set)
+    });
+    println!("returning");
+    (list.lock().clone(), point_set.lock().clone())
 }
+
 impl CityCollection {
     pub fn render(&self) {
         let mut img =
@@ -428,10 +456,13 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
             }
             let mut count = 1;
             let mut borders = a.borders.clone();
-            for j in i + 1..ps.vertices.len() {
+            for j in 0..ps.vertices.len() {
+                if i == j {
+                    continue;
+                }
                 let b = &ps.vertices[j];
                 let d = ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y)).isqrt();
-                if d < 6 {
+                if d < 4 {
                     hs.insert((b.x, b.y));
                     cx += b.x;
                     cy += b.y;
@@ -452,48 +483,51 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
                 borders,
             })
         }
-        let mut cx = 0;
-        let mut cy = 0;
+        let mut cx = 0.;
+        let mut cy = 0.;
         for i in &vs2 {
-            cx += i.x;
-            cy += i.y;
+            cx += i.x as f32;
+            cy += i.y as f32;
         }
         if vs2.len() == 0 {
             ps.vertices = vs2;
             continue;
         }
-        cx /= (vs2.len() as i32);
-        cy /= (vs2.len() as i32);
-        for i in &mut vs2 {
-            use raylib::math::Vector2;
-            let dx = (i.x - cx);
-            let dy = (i.y - cy);
-            let v2 = Vector2::new(dx as f32, dy as f32);
-            let l = v2.length();
-            let x = i.x;
-            let y = i.y;
-            let disp = {
-                let mut tmp = 2.;
-                for dy in -2..=2 {
-                    for dx in -2..=2 {
-                        if cc.vor.get(x + dx, y + dy) == 0 {
-                            if dx.abs() < 1 && dy.abs() < 1 {
-                                tmp = 6.
-                            } else if tmp < 8. {
-                                tmp = 4.;
-                            }
-                        }
+        cx /= (vs2.len() as f32);
+        cy /= (vs2.len() as f32);
+        let c = Vector2::new(cx, cy);
+        let mut prev_distance =
+            Vector2::new(vs2[vs2.len() - 1].x as f32, vs2[vs2.len() - 1].y as f32).distance_to(c);
+        /*   let mut updated = true;
+        while updated {
+            for i in 0..vs2.len() {
+                let v0 = Vector2::new(vs2[i].x as f32, vs2[i].y as f32);
+                let d1 = v0 - c;
+                let d1c = d1.length();
+                if d1c < prev_distance {
+                    let d2 = d1.normalized();
+                    let v2 = d2 * prev_distance;
+                    vs2[i].x = v2.x as i32;
+                    vs2[i].y = v2.y as i32;
+                } else if prev_distance < d1c {
+                    prev_distance = d1c;
+                }
+            }
+            break;
+        }*/
+        let mut hit_set = Vec::new();
+        for i in &vs2 {
+            let mut hit = false;
+            'b: for dy in -2..=2 {
+                for dx in -2..=2 {
+                    if cc.vor.get(i.x + dx, i.y + dy) == 0 {
+                        hit = true;
+                        break 'b;
                     }
                 }
-                tmp
-            };
-            let l = if l < disp { 0. } else { l - disp };
-            let vn = v2.normalized();
-            let vnew = vn * l + Vector2::new(cx as f32, cy as f32);
-            i.x = vnew.x as i32;
-            i.y = vnew.y as i32;
+            }
+            hit_set.push(hit);
         }
-
         let mut vs: Vec<Vertex> = Vec::new();
         let mut done_set = HashSet::new();
         for i in 0..vs2.len() {
@@ -511,7 +545,7 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
                 let d = ((base.x - second.x) * (base.x - second.x)
                     + (base.y - second.y) * (base.y - second.y))
                     .isqrt();
-                if d < 4 {
+                if d < 8 {
                     cx += second.x;
                     cy += second.y;
                     count += 1;
@@ -533,16 +567,69 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
             });
         }
         vs2 = vs;
+        for di in 0..vs2.len() {
+            let v0 = &vs2[if di == 0 { vs2.len() - 1 } else { di - 1 }];
+            let v1 = &vs2[di];
+            let v2 = &vs2[(di + 1) % vs2.len()];
+            let h0 = hit_set[if di == 0 { vs2.len() - 1 } else { di - 1 }];
+            let h1 = hit_set[di];
+            let h2 = hit_set[(di + 1) % hit_set.len()];
+            let p0 = Vector2::new(v0.x as f32, v1.x as f32);
+            let p1 = Vector2::new(v1.x as f32, v1.y as f32);
+            let p2 = Vector2::new(v2.x as f32, v2.y as f32);
+            let delta = c - p1;
+            if delta.length() <= 0.1 {
+                continue;
+            }
+            let l1 = delta.length() * 0.9;
+            let dn = delta.normalized();
+            {
+                let d1 = -dn * l1 + c;
+                vs2[di].x = d1.x as i32;
+                vs2[di].y = d1.y as i32;
+            }
+            let n0 = (p1 - p0).rotated(PI / 2.);
+            let n1 = (p2 - p1).rotated(PI / 2.);
+            let n0p = if n0.dot(dn) < 0. { -n0 } else { n0 };
+            let n1p = if n1.dot(dn) < 0. { -n1 } else { n1 };
+            let mut voff = ((n0p + n1p) / 2.).normalized() * 0.2 + (dn * 0.8);
+            if voff.dot(dn) < 0. {
+                voff = -voff;
+            }
+            voff *= 1.2;
+            let rw = 2.;
+            if h1 {
+                if h0 && !h2 {
+                    let r1 = (p1 - p0).normalized().rotated(PI / 2.);
+                    if r1.dot(dn) < 0.0 {
+                        voff += -r1 * rw;
+                    } else {
+                        voff += r1 * rw;
+                    }
+                } else if h2 && !h0 {
+                    let r1 = (p2 - p1).normalized().rotated(PI / 2.);
+                    if r1.dot(dn) < 0.0 {
+                        voff += -r1 * rw;
+                    } else {
+                        voff += r1 * rw;
+                    }
+                } else if h0 && h2 {
+                    voff *= 4.;
+                }
+            }
+            vs2[di].x += voff.x as i32;
+            vs2[di].y += voff.y as i32;
+        }
         vs2.sort_by(|a, b| {
-            let x0 = &a.x;
-            let y0 = &a.y;
-            let x1 = &b.x;
-            let y1 = &b.y;
+            let x0 = a.x as f32;
+            let y0 = a.y as f32;
+            let x1 = b.x as f32;
+            let y1 = b.y as f32;
             use raylib::prelude::Vector2;
-            let ax = *x0 - cx;
-            let ay = *y0 - cy;
-            let bx = *x1 - cx;
-            let by = *y1 - cy;
+            let ax = x0 - cx;
+            let ay = y0 - cy;
+            let bx = x1 - cx;
+            let by = y1 - cy;
             let v1 = Vector2::new(ax as f32, ay as f32).normalized();
             let v2 = Vector2::new(bx as f32, by as f32).normalized();
             let t1 = v1.y.atan2(v1.x);
@@ -552,11 +639,33 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
         let mut tmp = ps.clone();
         tmp.vertices = vs2;
         let mut is_degen = false;
+        for i in 0..tmp.vertices.len() {
+            for j in 0..tmp.vertices.len() {
+                if i == j {
+                    continue;
+                }
+                if i == (j + 1) % tmp.vertices.len() || j == (i + 1) % tmp.vertices.len() {
+                    continue;
+                }
+                let d = ((tmp.vertices[i].x - tmp.vertices[j].x)
+                    * (tmp.vertices[i].x - tmp.vertices[j].x)
+                    + (tmp.vertices[i].y - tmp.vertices[j].y)
+                        * (tmp.vertices[i].y - tmp.vertices[j].y))
+                    .isqrt();
+                if d < 8 {
+                    is_degen = true;
+                }
+            }
+        }
         'lp: loop {
+            if is_degen {
+                break;
+            }
             if tmp.vertices.len() < 4 {
                 is_degen = true;
                 break;
             }
+            let mut dcx = 0;
             for i in 0..tmp.vertices.len() {
                 use raylib::math::Vector2;
                 let j = (i + 1) % tmp.vertices.len();
@@ -568,21 +677,28 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
                 let p0 = Vector2::new(tmp.vertices[k].x as f32, tmp.vertices[k].y as f32);
                 let p1 = Vector2::new(tmp.vertices[i].x as f32, tmp.vertices[i].y as f32);
                 let p2 = Vector2::new(tmp.vertices[j].x as f32, tmp.vertices[j].y as f32);
-                if p0.distance_to(p1) < 1. {
+                if p0.distance_to(p1) > 40. {
                     is_degen = true;
                     break 'lp;
                 }
-                if p1.distance_to(p2) < 1. {
+                if p1.distance_to(p2) > 40. {
                     is_degen = true;
                     break 'lp;
                 }
-                let d1 = (p2 - p1).normalized();
-                let d2 = (p1 - p0).normalized();
-                let ang = d1.angle_to(d2);
-                if ang < 0.1 {
-                    is_degen = true;
-                    break 'lp;
+                let d1 = (p2 - p0).normalized();
+                let d2 = (p0 - p1).normalized();
+                let ang = d1.dot(d2);
+                if ang > 0.5 || ang < -0.1 {
+                    dcx += 1;
+                    if dcx > 1 {
+                        //        is_degen = true;
+                        //        break 'lp;
+                    }
                 }
+            }
+            if tmp.points.len() < 256 || tmp.points.len() > 4096 {
+                is_degen = true;
+                break 'lp;
             }
             break;
         }

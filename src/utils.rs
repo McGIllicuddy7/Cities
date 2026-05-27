@@ -1,196 +1,188 @@
 use std::{
-    alloc::Layout,
+    borrow::Borrow,
+    collections::{HashMap, HashSet},
+    hash::Hash,
     sync::{Arc, Mutex, MutexGuard},
 };
 
-#[derive(Debug)]
-pub struct ArenaData {
-    pub start: *mut u8,
-    pub count: usize,
-    pub next_ptr: usize,
-    pub next_arena: Option<Arena>,
-    pub destructor_list: Vec<(*mut (), unsafe fn(*mut (), usize), usize)>,
+pub struct ConcurrentHashMap<T: Hash + Eq, U> {
+    inner: Arc<Mutex<HashMap<T, U>>>,
 }
-
-#[derive(Clone, Debug)]
-pub struct Arena {
-    ptr: Arc<Mutex<ArenaData>>,
-}
-impl Arena {
-    fn convenience_inner_lock<'a>(&'a self) -> MutexGuard<'a, ArenaData> {
-        self.ptr.lock().unwrap()
-    }
-
-    pub fn alloc_bytes<'a>(&'a self, count: usize) -> *mut [u8] {
-        let mut data = self.convenience_inner_lock();
-        let mut count = count;
-        if count % 16 != 0 {
-            count += 16 - data.count % 16;
-        }
-        if data.next_ptr + count >= data.count {
-            let x = if let Some(x) = data.next_arena.as_ref() {
-                x
-            } else {
-                data.next_arena = Some(Arena::new_min_size(count));
-                data.next_arena.as_ref().unwrap()
-            };
-            x.alloc_bytes(count)
-        } else {
-            let out_off = data.next_ptr;
-            data.next_ptr += count;
-            let out = unsafe { std::ptr::slice_from_raw_parts_mut(data.start.add(out_off), count) };
-            out
-        }
-    }
-
-    pub fn new_min_size(count: usize) -> Self {
-        let mut to_alloc_size = 4096 * 4;
-        while to_alloc_size < count {
-            to_alloc_size *= 2;
-        }
-        let bytes =
-            unsafe { std::alloc::alloc(Layout::from_size_align(to_alloc_size, 16).unwrap()) };
-        let ptr = Arc::new(Mutex::new(ArenaData {
-            start: bytes,
-            count: to_alloc_size,
-            next_ptr: 0,
-            next_arena: None,
-            destructor_list: Vec::new(),
-        }));
-        Self { ptr }
-    }
-
+impl<T: Hash + Eq, U> ConcurrentHashMap<T, U> {
     pub fn new() -> Self {
-        let to_alloc_size = 4096 * 4;
-        let bytes =
-            unsafe { std::alloc::alloc(Layout::from_size_align(to_alloc_size, 16).unwrap()) };
-        let ptr = Arc::new(Mutex::new(ArenaData {
-            start: bytes,
-            count: to_alloc_size,
-            next_ptr: 0,
-            next_arena: None,
-            destructor_list: Vec::new(),
-        }));
-        Self { ptr }
-    }
-
-    pub fn alloc<'a, T: Send>(&'a self, val: T) -> &'a mut T {
-        let bytes = self.alloc_bytes(size_of_val(&val));
-        let ptr: *mut T = bytes.cast();
-        unsafe {
-            let f: (*mut (), unsafe fn(*mut (), usize), usize) = (
-                ptr as *mut (),
-                drop_ptr::<T> as unsafe fn(*mut (), usize),
-                1,
-            );
-            self.convenience_inner_lock().destructor_list.push(f);
-            self.convenience_inner_lock().destructor_list.push(f);
-            ptr.write(val);
-            ptr.as_mut().unwrap()
+        Self {
+            inner: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-
-    pub fn alloc_slice<'a, T: Send + Clone>(&'a self, val: &[T]) -> &'a mut [T] {
-        let bytes = self.alloc_bytes(size_of_val(&val));
-        let ptr: *mut [T] = std::ptr::slice_from_raw_parts_mut(bytes.cast(), val.len());
-        unsafe {
-            let f: (*mut (), unsafe fn(*mut (), usize), usize) = (
-                ptr as *mut (),
-                drop_ptr::<T> as unsafe fn(*mut (), usize),
-                val.len(),
-            );
-            self.convenience_inner_lock().destructor_list.push(f);
-            for i in 0..val.len() {
-                (ptr as *mut T).add(i).write(val[i].clone());
-            }
-            ptr.as_mut().unwrap()
-        }
+    pub fn insert(&self, key: T, value: U) -> Option<U> {
+        self.inner.lock().unwrap().insert(key, value)
     }
-    pub fn alloc_buffer<'a, T: Send + Default>(&'a self, count: usize) -> &'a mut [T] {
-        unsafe {
-            let bytes = self.alloc_bytes(size_of::<T>() * count);
-            let ptr: *mut [T] = std::ptr::slice_from_raw_parts_mut(bytes.cast(), count);
-
-            let f: (*mut (), unsafe fn(*mut (), usize), usize) = (
-                ptr as *mut (),
-                drop_ptr::<T> as unsafe fn(*mut (), usize),
-                count,
-            );
-            self.convenience_inner_lock().destructor_list.push(f);
-            for i in 0..count {
-                (ptr as *mut T).add(i).write(T::default());
-            }
-            ptr.as_mut().unwrap()
-        }
-    }
-    pub fn alloc_buffer_with_value<'a, T: Send + Clone>(
-        &'a self,
-        val: &T,
-        count: usize,
-    ) -> &'a mut [T] {
-        unsafe {
-            let bytes = self.alloc_bytes(size_of::<T>() * count);
-            let ptr: *mut [T] = std::ptr::slice_from_raw_parts_mut(bytes.cast(), count);
-
-            let f: (*mut (), unsafe fn(*mut (), usize), usize) = (
-                ptr as *mut (),
-                drop_ptr::<T> as unsafe fn(*mut (), usize),
-                count,
-            );
-            self.convenience_inner_lock().destructor_list.push(f);
-            for i in 0..count {
-                (ptr as *mut T).add(i).write(val.clone());
-            }
-            ptr.as_mut().unwrap()
-        }
-    }
-    pub fn concat_buffers<'a, T: Clone>(&'a self, start: &[T], remainder: &[T]) -> &'a mut [T] {
-        unsafe {
-            let count = start.len() + remainder.len();
-            let bytes = self.alloc_bytes(size_of::<T>() * count);
-            let ptr: *mut [T] = std::ptr::slice_from_raw_parts_mut(bytes.cast(), count);
-
-            let f: (*mut (), unsafe fn(*mut (), usize), usize) = (
-                ptr as *mut (),
-                drop_ptr::<T> as unsafe fn(*mut (), usize),
-                count,
-            );
-            self.convenience_inner_lock().destructor_list.push(f);
-            for i in 0..start.len() {
-                (ptr as *mut T).add(i).write(start[i].clone());
-            }
-            for i in 0..remainder.len() {
-                (ptr as *mut T)
-                    .add(start.len() + i)
-                    .write(remainder[i].clone());
-            }
-            ptr.as_mut().unwrap()
-        }
+    pub fn remove<V: ?Sized + Hash + Eq>(&self, key: &V) -> Option<U>
+    where
+        T: Borrow<V>,
+    {
+        self.inner.lock().unwrap().remove(key)
     }
 
-    pub fn concat_strs<'a>(&'a self, a: &str, b: &str) -> &'a mut str {
-        let bytes = self.concat_buffers(a.as_bytes(), b.as_bytes());
-        std::str::from_utf8_mut(bytes).unwrap()
+    pub fn contains_key<V: ?Sized + Hash + Eq>(&self, key: &V) -> bool
+    where
+        T: Borrow<V>,
+    {
+        self.inner.lock().unwrap().contains_key(key)
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.lock().unwrap().len()
+    }
+    pub fn with<V: ?Sized + Hash + Eq, W>(
+        &self,
+        key: &V,
+        to_run: impl FnOnce(&V, Option<&U>) -> W,
+    ) -> W
+    where
+        T: Borrow<V>,
+    {
+        let lck = self.inner.lock().unwrap();
+        let v0 = lck.get(key);
+        (to_run)(key, v0)
+    }
+    pub fn with_mut<V: ?Sized + Hash + Eq, W>(
+        &self,
+        key: &V,
+        to_run: impl FnOnce(&V, Option<&mut U>) -> W,
+    ) -> W
+    where
+        T: Borrow<V>,
+    {
+        let mut lck = self.inner.lock().unwrap();
+        let v0 = lck.get_mut(key);
+        (to_run)(key, v0)
+    }
+    pub fn lock<'a>(&'a self) -> MutexGuard<'a, HashMap<T, U>> {
+        self.inner.lock().unwrap()
     }
 }
-unsafe fn drop_ptr<T>(v: *mut (), count: usize) {
-    let x = v as *mut T;
-    unsafe {
-        for i in 0..count {
-            std::ptr::drop_in_place(x.add(i));
+impl<T: Hash + Eq, U: Clone> ConcurrentHashMap<T, U> {
+    pub fn get<V: ?Sized + Hash + Eq>(&self, v: &V) -> Option<U>
+    where
+        T: Borrow<V>,
+    {
+        self.inner.lock().unwrap().get(v).map(|i| i.clone())
+    }
+}
+
+pub struct ConcurrentHashSet<T: Hash + Eq> {
+    inner: Arc<Mutex<HashSet<T>>>,
+}
+impl<T: Hash + Eq> ConcurrentHashSet<T> {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(HashSet::new())),
+        }
+    }
+    pub fn insert(&self, key: T) -> bool {
+        self.inner.lock().unwrap().insert(key)
+    }
+    pub fn remove<V: ?Sized + Hash + Eq>(&self, key: &V) -> bool
+    where
+        T: Borrow<V>,
+    {
+        self.inner.lock().unwrap().remove(key)
+    }
+
+    pub fn contains<V: ?Sized + Hash + Eq>(&self, key: &V) -> bool
+    where
+        T: Borrow<V>,
+    {
+        self.inner.lock().unwrap().contains(key)
+    }
+
+    pub fn len(&self) -> usize {
+        self.inner.lock().unwrap().len()
+    }
+}
+impl<T: Hash + Eq + Clone> ConcurrentHashSet<T> {
+    pub fn get<V: ?Sized + Hash + Eq>(&self, v: &V) -> Option<T>
+    where
+        T: Borrow<V>,
+    {
+        self.inner.lock().unwrap().get(v).map(|i| i.clone())
+    }
+}
+#[derive(Clone, Debug)]
+pub struct ConcurrentList<T> {
+    inner: Arc<Mutex<Vec<T>>>,
+}
+impl<T> ConcurrentList<T> {
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.inner.lock().unwrap().len()
+    }
+    pub fn push(&self, v: T) {
+        self.inner.lock().unwrap().push(v);
+    }
+    pub fn pop(&self) -> Option<T> {
+        self.inner.lock().unwrap().pop()
+    }
+    pub fn insert(&self, at: usize, v: T) -> Result<(), T> {
+        let mut guard = self.inner.lock().unwrap();
+        if guard.len() > at {
+            return Err(v);
+        } else {
+            guard.insert(at, v);
+            Ok(())
+        }
+    }
+
+    pub fn remove(&self, at: usize) -> Option<T> {
+        let mut guard = self.inner.lock().unwrap();
+        if guard.len() >= at {
+            None
+        } else {
+            Some(guard.remove(at))
+        }
+    }
+
+    pub fn lock<'a>(&'a self) -> MutexGuard<'a, Vec<T>> {
+        self.inner.lock().unwrap()
+    }
+
+    pub fn with<V>(&self, at: usize, func: impl FnOnce(usize, Option<&T>) -> V) -> V {
+        let lck = self.inner.lock().unwrap();
+        func(at, lck.get(at))
+    }
+
+    pub fn with_mut<V>(&self, at: usize, func: impl FnOnce(usize, Option<&mut T>) -> V) -> V {
+        let mut lck = self.inner.lock().unwrap();
+        func(at, lck.get_mut(at))
+    }
+}
+impl<T: Clone> ConcurrentList<T> {
+    pub fn get(&self, at: usize) -> Option<T> {
+        self.inner.lock().unwrap().get(at).map(|i| i.clone())
+    }
+}
+
+pub struct Timer<'a> {
+    message: &'a str,
+    start: std::time::Instant,
+}
+impl<'a> Timer<'a> {
+    pub fn new(msg: &'a str) -> Self {
+        Self {
+            message: msg,
+            start: std::time::Instant::now(),
         }
     }
 }
-impl Drop for ArenaData {
+
+impl<'a> Drop for Timer<'a> {
     fn drop(&mut self) {
-        unsafe {
-            for (ptr, func, count) in &mut self.destructor_list {
-                (*func)(*ptr, *count);
-            }
-            std::alloc::dealloc(
-                self.start,
-                std::alloc::Layout::from_size_align(self.count, 16).unwrap(),
-            );
-        }
+        let dur = self.start.elapsed();
+        println!("{} took: {:#?}", self.message, dur)
     }
 }
