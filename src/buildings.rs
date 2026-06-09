@@ -11,7 +11,7 @@ use rayon::iter::{
     ParallelIterator,
 };
 
-use crate::utils::{ConcurrentHashMap, ConcurrentHashSet, ConcurrentList};
+use crate::utils::{ConcurrentHashMap, ConcurrentHashSet, ConcurrentList, noise_1d_layered};
 
 pub struct Voronoi {
     pub next_idx: Mutex<u32>,
@@ -696,13 +696,17 @@ pub fn cleanup_city_collection(cc: &mut CityCollection) {
                     }
                 }
             }
-            if tmp.points.len() < 256 || tmp.points.len() > 4096 {
+            if tmp.points.len() < 400 || tmp.points.len() > 4096 {
                 is_degen = true;
                 break 'lp;
             }
             break;
         }
-        if !is_degen {
+        let w = cc.vor.width as f32 / 2.;
+        if !is_degen
+            && ((noise_1d_layered(c.x as i32, c.y as i32, 0.1, "noise", 4) + 0.4)
+                > ((c.x - w) * (c.x - w) + (c.y - w) * (c.y - w)).sqrt() / (w))
+        {
             col_new.insert(*point_idx, tmp);
         }
     }
