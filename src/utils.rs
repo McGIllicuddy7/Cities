@@ -332,3 +332,195 @@ pub fn burn(v: f32, thresh: f32) -> f32 {
         1.0
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct Boundary {
+    pub center_x: i32,
+    pub center_y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub rotation: f32,
+}
+
+impl Boundary {
+    pub fn vertices(&self) -> [Vector2; 4] {
+        let mut points = [
+            Vector2::new(self.width as f32 / 2., self.height as f32 / 2.),
+            Vector2::new(self.width as f32 / 2., -self.height as f32 / 2.),
+            Vector2::new(-self.width as f32 / 2., self.height as f32 / 2.),
+            Vector2::new(-self.width as f32 / 2., -self.height as f32 / 2.),
+        ];
+        let pos = Vector2::new(self.center_x as f32, self.center_y as f32);
+        points
+            .iter_mut()
+            .for_each(|i| *i = i.rotated(self.rotation) + pos);
+        points
+    }
+
+    pub fn normals(&self) -> [Vector2; 8] {
+        let mut points = [
+            Vector2::new(1., 0.),
+            Vector2::new(0., 1.),
+            Vector2::new(-1., 0.),
+            Vector2::new(0., -1.),
+            Vector2::new(1., 1.),
+            Vector2::new(1., -1.),
+            Vector2::new(-1., 1.),
+            Vector2::new(-1., -1.),
+        ];
+        points.iter_mut().for_each(|i| i.rotate(self.rotation));
+        points
+    }
+
+    pub fn check_collision(&self, other: &Self) -> bool {
+        let sps = self.vertices();
+        let ops = other.vertices();
+        let sns = self.normals();
+        let ons = other.normals();
+        for i in sns {
+            let mut smin = sps[0].dot(i);
+            let mut smax = sps[0].dot(i);
+            let mut omin = ops[0].dot(i);
+            let mut omax = ops[0].dot(i);
+            for j in sps {
+                let tmp = j.dot(i);
+                if tmp < smin {
+                    smin = tmp;
+                }
+                if tmp > smax {
+                    smax = tmp;
+                }
+            }
+            for j in ops {
+                let tmp = j.dot(i);
+                if tmp < omin {
+                    omin = tmp;
+                }
+                if tmp > omax {
+                    omax = tmp;
+                }
+            }
+            if smax < omin || omax < smin {
+                return false;
+            }
+        }
+        for i in ons {
+            let mut smin = sps[0].dot(i);
+            let mut smax = sps[0].dot(i);
+            let mut omin = ops[0].dot(i);
+            let mut omax = ops[0].dot(i);
+            for j in sps {
+                let tmp = j.dot(i);
+                if tmp < smin {
+                    smin = tmp;
+                }
+                if tmp > smax {
+                    smax = tmp;
+                }
+            }
+            for j in ops {
+                let tmp = j.dot(i);
+                if tmp < omin {
+                    omin = tmp;
+                }
+                if tmp > omax {
+                    omax = tmp;
+                }
+            }
+            if smax < omin || omax < smin {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn check_collision_point(&self, x: i32, y: i32) -> bool {
+        let v = Vector2::new(x as f32, y as f32);
+        let points = self.vertices();
+        let col1 = raylib::check_collision_point_triangle(v, points[0], points[1], points[2]);
+        let col2 = raylib::check_collision_point_triangle(v, points[1], points[2], points[3]);
+        col1 || col2
+    }
+
+    pub fn draw_to_image(&self, image: &mut raylib::prelude::Image, color: Color) {
+        let mut min_x = self.center_x;
+        let mut min_y = self.center_y;
+        let mut max_x = self.center_x;
+        let mut max_y = self.center_y;
+        for j in self.vertices() {
+            let x = j.x as i32;
+            let y = j.y as i32;
+            if x < min_x {
+                min_x = x;
+            }
+            if x > max_x {
+                max_x = x;
+            }
+            if y < min_y {
+                min_y = y;
+            }
+            if y > max_y {
+                max_y = y;
+            }
+        }
+        for y in min_y..=max_y {
+            for x in min_x..=max_x {
+                if self.check_collision_point(x, y) {
+                    image.draw_pixel(x, y, color)
+                }
+            }
+        }
+    }
+}
+
+static FONT: std::sync::Mutex<Option<rusttype::Font<'static>>> = std::sync::Mutex::new(None);
+static FONT_DATA: &'static [u8] = include_bytes!("../Px437_IBM_VGA_9x16.ttf");
+
+pub fn draw_text_to_image(
+    image: &mut raylib::prelude::Image,
+    text: &str,
+    x: i32,
+    y: i32,
+    height: i32,
+    color: Color,
+) {
+    let mut fnt = FONT.lock().unwrap();
+    if fnt.is_none() {
+        let typ = rusttype::Font::try_from_bytes(FONT_DATA).unwrap();
+        *fnt = Some(typ);
+    }
+    let font = fnt.as_ref().unwrap();
+    let mut cursor_x = x;
+    let mut cursor_y = y;
+    let f = font.scale_for_pixel_height(height as f32) * 95.;
+    let dx = (9. * f) as i32;
+    let dy = (16. * f) as i32;
+    for i in text.chars() {
+        let ch = font.glyph(i).scaled(rusttype::Scale::uniform(16.));
+        let bounds = ch.exact_bounding_box().unwrap();
+        let dh = dy - bounds.height() as i32;
+        ch.positioned(rusttype::Point { x: 0.0, y: 0.0 })
+            .draw(|ax, ay, amount| {
+                let amount = if amount < 0.5 { 0.0 } else { 1. };
+
+                let x = cursor_x + ax as i32;
+                let y = cursor_y + ay as i32 + dh;
+                let col = if amount > 0.5 {
+                    Color {
+                        r: color.r,
+                        g: color.g,
+                        b: color.b,
+                        a: 255,
+                    }
+                } else {
+                    image.get_color(x, y)
+                };
+                image.draw_pixel(x, y, col);
+            });
+        cursor_x += dx;
+        if i == '\n' {
+            cursor_x = x;
+            cursor_y += dy;
+        }
+    }
+}
