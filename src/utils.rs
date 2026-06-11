@@ -465,7 +465,19 @@ impl Boundary {
         }
         for y in min_y..=max_y {
             for x in min_x..=max_x {
-                if self.check_collision_point(x, y) {
+                let mut hit = false;
+                'lp: for dy in -2..=2i32 {
+                    for dx in -2..=2i32 {
+                        if dx.abs() > 1 && dy.abs() > 1 {
+                            continue;
+                        }
+                        if self.check_collision_point(x + dx, y + dy) {
+                            hit = true;
+                            break 'lp;
+                        }
+                    }
+                }
+                if hit {
                     image.draw_pixel(x, y, color)
                 }
             }
@@ -548,5 +560,51 @@ pub trait DrawCPUText {
 impl DrawCPUText for raylib::prelude::Image {
     fn draw_text_cpu(&mut self, text: &str, x: i32, y: i32, height: i32, color: Color) {
         draw_text_to_image(self, text, x, y, height, color);
+    }
+}
+
+//https://stackoverflow.com/questions/2824478/shortest-distance-between-two-line-segments
+pub fn distance_between_line_segments(
+    start1: Vector2,
+    end1: Vector2,
+    start2: Vector2,
+    end2: Vector2,
+) {
+    use raylib::prelude::Vector3;
+    let a0 = Vector3::new(start1.x, start1.y, 0.0);
+    let b0 = Vector3::new(start2.x, start2.y, 0.0);
+    let a1 = Vector3::new(end1.x, end1.y, 0.0);
+    let b1 = Vector3::new(end2.x, end2.y, 0.0);
+    let a = a1 - a0;
+    let b = b1 - b0;
+    let mag_a = a.length();
+    let mag_b = b.length();
+    let _a = a / mag_a;
+    let _b = b / mag_b;
+    let cross = _a.cross(_b);
+    let denom = {
+        let l = cross.length();
+        l * l
+    };
+    if denom.abs() < 0.01 {
+        let d0 = _a.dot(b0 - a0);
+        let d1 = _a.dot(b1 - a0);
+        if d0 <= 0. && 0. >= d1 {
+            if d0.abs() < d1.abs() {
+                //  return (a0 - b0).length();
+            } else {
+                // return (a0 - b1).length();
+            }
+        } else if d0 >= mag_a && d1 <= mag_a {
+            if d0.abs() < d1.abs() {
+                //return (a1-b0).length();
+            } else {
+                //return (a1-b1).length();
+            }
+        } else {
+            //   return ((_a * d0) + a0 - b0).length();
+        }
+    } else {
+        //     t = (b0 - a0);
     }
 }
