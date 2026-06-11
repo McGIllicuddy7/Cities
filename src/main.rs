@@ -1,7 +1,17 @@
 pub mod utils;
 pub use raylib::prelude::*;
+
+use crate::utils::DrawCPUText;
 pub fn main() {
-    let mut img = Image::gen_image_color(100, 100, Color::WHITE);
-    utils::draw_text_to_image(&mut img, "test", 10, 10, 16, Color::BLACK);
+    let mut img = Image::gen_image_color(1000, 1000, Color::WHITE);
+    img.draw_line(0, 100, 1000, 100, Color::BLACK);
+    img.draw_line(0, 132, 1000, 132, Color::BLACK);
+    img.draw_text_cpu(
+        "hiiii testing 1 2 3: a b c d e f g h i j k l m n o p q r s t u v w x y z\nA B C D E F G H I J K L M N O P Q R S T U V W X Y Z , : ; | 1 2 3 4 5 6 7 8 9 0",
+        100,
+        100,
+        16,
+        Color::GREEN,
+    );
     img.export_image("test2.png");
 }

@@ -492,25 +492,45 @@ pub fn draw_text_to_image(
     let font = fnt.as_ref().unwrap();
     let mut cursor_x = x;
     let mut cursor_y = y;
-    let f = font.scale_for_pixel_height(height as f32) * 95.;
+    let f = (height as f32 / 16.);
     let dx = (9. * f) as i32;
     let dy = (16. * f) as i32;
     for i in text.chars() {
-        let ch = font.glyph(i).scaled(rusttype::Scale::uniform(16.));
+        if i == ' ' {
+            cursor_x += dx;
+            continue;
+        }
+        if i == '\t' {
+            cursor_x += dx * 3;
+            continue;
+        }
+        if i == '\n' {
+            cursor_x = x;
+            cursor_y += dy;
+            continue;
+        }
+        let ch = font.glyph(i).scaled(rusttype::Scale::uniform(f * 16.));
         let bounds = ch.exact_bounding_box().unwrap();
-        let dh = dy - bounds.height() as i32;
-        ch.positioned(rusttype::Point { x: 0.0, y: 0.0 })
+        let dh = if i == 'g' || i == 'y' || i == 'q' || i == 'p' {
+            (-dy as f32 * 0.2) as i32 + bounds.height() as i32
+        } else {
+            bounds.height() as i32
+        };
+        ch.positioned(rusttype::Point { x: 0., y: 0.0 })
             .draw(|ax, ay, amount| {
                 let amount = if amount < 0.5 { 0.0 } else { 1. };
-
-                let x = cursor_x + ax as i32;
-                let y = cursor_y + ay as i32 + dh;
+                let x = cursor_x + ax as i32 + dx;
+                let y = cursor_y + ay as i32 + (dy - dh) - dy / 3;
+                //- (22. * (height as f32 / 160.)) as i32;
+                if y < 0 || y >= image.height() || x < 0 || x >= image.width() {
+                    return;
+                }
                 let col = if amount > 0.5 {
                     Color {
                         r: color.r,
                         g: color.g,
                         b: color.b,
-                        a: 255,
+                        a: color.a,
                     }
                 } else {
                     image.get_color(x, y)
@@ -518,9 +538,15 @@ pub fn draw_text_to_image(
                 image.draw_pixel(x, y, col);
             });
         cursor_x += dx;
-        if i == '\n' {
-            cursor_x = x;
-            cursor_y += dy;
-        }
+    }
+}
+
+pub trait DrawCPUText {
+    fn draw_text_cpu(&mut self, text: &str, x: i32, y: i32, height: i32, color: Color);
+}
+
+impl DrawCPUText for raylib::prelude::Image {
+    fn draw_text_cpu(&mut self, text: &str, x: i32, y: i32, height: i32, color: Color) {
+        draw_text_to_image(self, text, x, y, height, color);
     }
 }
