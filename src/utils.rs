@@ -520,7 +520,7 @@ pub fn draw_text_to_image(
             .draw(|ax, ay, amount| {
                 let amount = if amount < 0.5 { 0.0 } else { 1. };
                 let x = cursor_x + ax as i32 + dx;
-                let y = cursor_y + ay as i32 + (dy - dh) - dy / 3;
+                let y = cursor_y + ay as i32 + (dy - dh) - (dy as f32 / (3.5)) as i32;
                 //- (22. * (height as f32 / 160.)) as i32;
                 if y < 0 || y >= image.height() || x < 0 || x >= image.width() {
                     return;
