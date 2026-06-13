@@ -504,7 +504,7 @@ pub fn draw_text_to_image(
     let font = fnt.as_ref().unwrap();
     let mut cursor_x = x;
     let mut cursor_y = y;
-    let f = (height as f32 / 16.);
+    let f = height as f32 / 16.;
     let dx = (9. * f) as i32;
     let dy = (16. * f) as i32;
     for i in text.chars() {
@@ -569,10 +569,10 @@ pub fn distance_between_line_segments(
     end1: Vector2,
     start2: Vector2,
     end2: Vector2,
-) {
-    let delta1 = (end1 - start1);
+) ->f32{
+    let delta1 = end1 - start1;
     let mut t1 = 0.0;
-    let delta2 = (end2 - start2);
+    let delta2 = end2 - start2;
     let mut t2 = 0.0;
     let mut min_dist = (start1).distance_to(start2);
     let mut div = 1.;
@@ -595,6 +595,19 @@ pub fn distance_between_line_segments(
                 t1 = t1p;
             }  
         }
+        {
+            let t2p = t20+(div as f32);
+            let pos21 = delta2*t2p + start2;
+            if pos21.distance_to(pos10)< min_dist{
+                t2 = t2p;
+            }
+        }{
+            let t2p = t20-(div as f32);
+            let pos21 = delta2*t2p + start2;
+            if pos21.distance_to(pos10)< min_dist{
+                t2= t2p;
+            }  
+        }
         if t1 < 0.0 {
             t1 = 0.0;
         }
@@ -607,7 +620,30 @@ pub fn distance_between_line_segments(
         if t1 > 1. {
             t1 = 1.;
         }
-        let pos1 = 
+        let pos1 = delta1*t1+start2;
         let pos2 = delta2 * t2 + start2;
+        let dist = pos1.distance_to(pos2);
+        if dist<min_dist{
+            min_dist = dist;
+        }else{
+            break;
+        }
     }
+    return min_dist;
+}
+
+pub fn distance_to_line_segment(point:Vector2, start:Vector2, end:Vector2)->f32{
+    distance_between_line_segments(point, point,start, end)
+}
+
+
+pub fn image_shader(shader:impl Fn(i32, i32)->Color, height:i32, width:i32)->raylib::prelude::Image{
+    let mut out = raylib::prelude::Image::gen_image_color(width, height, Color::BLACK);
+    for y in 0..height{
+        for x in 0..width{
+            let col = shader(x,y);
+            out.draw_pixel(x, y, col);
+        }
+    }
+    out
 }

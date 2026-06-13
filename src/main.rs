@@ -1,5 +1,4 @@
 pub mod utils;
-use std::f32::consts::PI;
 
 pub use raylib::prelude::*;
 
