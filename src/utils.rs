@@ -570,41 +570,44 @@ pub fn distance_between_line_segments(
     start2: Vector2,
     end2: Vector2,
 ) {
-    use raylib::prelude::Vector3;
-    let a0 = Vector3::new(start1.x, start1.y, 0.0);
-    let b0 = Vector3::new(start2.x, start2.y, 0.0);
-    let a1 = Vector3::new(end1.x, end1.y, 0.0);
-    let b1 = Vector3::new(end2.x, end2.y, 0.0);
-    let a = a1 - a0;
-    let b = b1 - b0;
-    let mag_a = a.length();
-    let mag_b = b.length();
-    let _a = a / mag_a;
-    let _b = b / mag_b;
-    let cross = _a.cross(_b);
-    let denom = {
-        let l = cross.length();
-        l * l
-    };
-    if denom.abs() < 0.01 {
-        let d0 = _a.dot(b0 - a0);
-        let d1 = _a.dot(b1 - a0);
-        if d0 <= 0. && 0. >= d1 {
-            if d0.abs() < d1.abs() {
-                //  return (a0 - b0).length();
-            } else {
-                // return (a0 - b1).length();
+    let delta1 = (end1 - start1);
+    let mut t1 = 0.0;
+    let delta2 = (end2 - start2);
+    let mut t2 = 0.0;
+    let mut min_dist = (start1).distance_to(start2);
+    let mut div = 1.;
+    for _ in 0..10 {
+        div *= 0.5;
+        let t10 = t1;
+        let t20 = t2;
+        let pos10 = delta1 * t1 + start1;
+        let pos20 = delta2*t2+start2;
+        {
+            let t1p = t10+(div as f32);
+            let pos11 = delta1*t1p + start1;
+            if pos11.distance_to(pos20)< min_dist{
+                t1 = t1p;
             }
-        } else if d0 >= mag_a && d1 <= mag_a {
-            if d0.abs() < d1.abs() {
-                //return (a1-b0).length();
-            } else {
-                //return (a1-b1).length();
-            }
-        } else {
-            //   return ((_a * d0) + a0 - b0).length();
+        }{
+            let t1p = t10-(div as f32);
+            let pos11 = delta1*t1p + start1;
+            if pos11.distance_to(pos20)< min_dist{
+                t1 = t1p;
+            }  
         }
-    } else {
-        //     t = (b0 - a0);
+        if t1 < 0.0 {
+            t1 = 0.0;
+        }
+        if t1 > 1. {
+            t1 = 1.;
+        }
+        if t2 < 0.0 {
+            t2 = 0.0;
+        }
+        if t1 > 1. {
+            t1 = 1.;
+        }
+        let pos1 = 
+        let pos2 = delta2 * t2 + start2;
     }
 }
