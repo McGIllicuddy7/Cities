@@ -3,7 +3,7 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Ptr<T: ?Sized> {
     guard: *const Mutex<bool>,
     value: *const UnsafeCell<T>,
@@ -16,7 +16,8 @@ impl<T> Ptr<T> {
             value: std::ptr::null_mut(),
         }
     }
-
+}
+impl<T: ?Sized> Ptr<T> {
     pub fn lock<'a>(&'a self) -> Result<LifeGuard<'a, T>, TryLockPtrError> {
         unsafe {
             if self.guard.is_null() || self.value.is_null() {
@@ -59,7 +60,10 @@ impl<T> Ptr<T> {
         (self.guard, self.value)
     }
 
-    pub unsafe fn _internal_construct(guard: *mut Mutex<bool>, ptr: *mut UnsafeCell<T>) -> Self {
+    pub unsafe fn _internal_construct(
+        guard: *const Mutex<bool>,
+        ptr: *const UnsafeCell<T>,
+    ) -> Self {
         Self { guard, value: ptr }
     }
 }
@@ -91,6 +95,8 @@ impl std::fmt::Display for TryLockPtrError {
     }
 }
 impl std::error::Error for TryLockPtrError {}
+
+#[derive(Debug)]
 pub struct LifeGuard<'a, T: ?Sized> {
     _guard: MutexGuard<'a, bool>,
     rf: &'a mut T,
@@ -108,10 +114,10 @@ impl<'a, T: ?Sized> LifeGuard<'a, T> {
 
 #[macro_export]
 macro_rules! ptr_cast {
-    ($base:expr, $to_kind:ty) => {
+    ( $to_kind:ty,$base:expr) => {
         unsafe {
             let (guard, ptr) = $base._internal_get_ptrs();
-            let ptr = ptr as *mut _ as *mut $to_kind as *mut std::cell::UnsafeCell<$to_kind>;
+            let ptr = (*ptr).get() as *const $to_kind as *const std::cell::UnsafeCell<$to_kind>;
             crate::pool::Ptr::_internal_construct(guard, ptr)
         }
     };
@@ -211,7 +217,10 @@ make_pooled!(String);
 #[macro_export]
 macro_rules! new {
     ($T:ty, $value:expr) => {
-        $T::alloc_pooled($value)
+        crate::pool::Ptr::<$T>::new($value)
+    };
+    ($value:expr) => {
+        crate::pool::Ptr::new($value)
     };
 }
 
