@@ -2,19 +2,15 @@ pub mod utils;
 
 pub mod pool;
 pub use raylib::prelude::*;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::pool::Ptr;
-
+use crate::pool::{Ptr, save_pool_state};
+make_pooled!(i32, 10000);
 pub fn main() {
+    register_types!(i32);
     let a = new!(10);
-    let ptr2 = a;
-    let b = *a.lock().unwrap().read();
-    *a.lock().unwrap().write() = 15;
-    let c = *a.lock().unwrap().read();
-    println!("v0:{b}, v1:{c}");
-    let d = ptr_cast!(dyn std::fmt::Debug, a);
-    let dl = d.lock().unwrap();
-    println!("{:#?}", dl.read());
-    drop(dl);
-    println!("{}", ptr2.lock().unwrap().read());
+    (0..1).into_par_iter().for_each(move |tid| {
+        println!("{}", tid);
+    });
+    println!("{:#?}", a.lock().unwrap().read());
 }
