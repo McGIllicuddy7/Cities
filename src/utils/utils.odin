@@ -6,6 +6,7 @@ import "core:mem"
 import "core:os"
 import "core:strings"
 import "core:sync"
+import "vendor:raylib"
 import "vendor:stb/image"
 import "vendor:stb/truetype"
 
@@ -15,6 +16,11 @@ color_t :: [4]u8
 
 BoundingBox :: struct {
 	x, y, width, height: i32,
+}
+
+RectBounds :: struct {
+	center_x, center_y, width, height: i32,
+	rot:                               f32,
 }
 
 random :: proc() -> u32 {
@@ -412,8 +418,6 @@ bounding_box_of_points :: proc(args: []vec2i) -> BoundingBox {
 check_collision_triangle_point :: proc(point: vec2i, p0: vec2i, p1: vec2i, p2: vec2i) -> bool {
 	tri := [3]vec2f{cast(vec2f)p0, cast(vec2f)p1, cast(vec2f)p2}
 	center := (tri[0] + tri[1] + tri[2]) / 3
-	@(static) average_count := 0
-	@(static) failed_count := 0
 	for di in 0 ..< 3 {
 		v0 := tri[di]
 		v1 := tri[(di + 1) % 3]
@@ -426,34 +430,227 @@ check_collision_triangle_point :: proc(point: vec2i, p0: vec2i, p1: vec2i, p2: v
 		}
 		d2 := cast(vec2f)point - mid
 		if vec2f_dot(d2, n) > 0.0 {
-			average_count += di
-			failed_count += 1
 			return false
 		}
 	}
-	/*	fmt.println(
-		"point:",
-		point,
-		"center:",
-		center,
-		"average_count:",
-		cast(f32)average_count / (cast(f32)failed_count),
-		"failed_count:",
-		failed_count,
-	)
-	for di in 0 ..< 3 {
-		v0 := tri[di]
-		v1 := tri[(di + 1) % 3]
-		fmt.println("v0:", v0, "v1:", v1)
-		mid := (v0 + v1) / 2
-		n := vec2f_rotate(vec2f_normalized(v1 - v0), math.PI / 2)
-		fmt.println("normal", n)
-		delta := mid - center
-		if vec2f_dot(n, delta) > 0.0 {
-			n *= -1
-		}
-		d2 := cast(vec2f)point - center
-		fmt.println("delta:", delta, "d2", d2, "vec2f_dot(d2, delta)", vec2f_dot(d2, delta))
-	}*/
 	return true
+}
+
+
+rotate_point_set :: proc(points: []vec2i, angle: f32) {
+	center: vec2i
+	for i in points {
+		center += i
+	}
+	center /= cast(i32)len(points)
+	for &i in points {
+		delta := i - center
+		d2 := cast(vec2f)delta
+		d3 := vec2f_rotate(d2, angle)
+		d4 := cast(vec2i)d3
+		i = center + d4
+	}
+}
+
+rotate_point_set_about :: proc(points: []vec2i, angle: f32, center: vec2i) {
+	for &i in points {
+		delta := i - center
+		d2 := cast(vec2f)delta
+		d3 := vec2f_rotate(d2, angle)
+		d4 := cast(vec2i)d3
+		i = center + d4
+	}
+}
+
+distance_between_lines :: proc(s1: vec2i, e1: vec2i, s2: vec2i, e2: vec2i) -> f32 {
+	con: vec2f
+	if raylib.CheckCollisionLines(
+		cast(vec2f)s1,
+		cast(vec2f)e1,
+		cast(vec2f)s2,
+		cast(vec2f)e2,
+		&con,
+	) {
+		return 0.0
+	}
+	min := vec2f_dist(cast(vec2f)s1, cast(vec2f)e1)
+	d1 := point_distance_to_line(s1, s2, e2)
+	if d1 < min {
+		min = d1
+	}
+	d2 := point_distance_to_line(e1, s2, e2)
+	if d2 < min {
+		min = d2
+	}
+	d3 := point_distance_to_line(s2, s1, e1)
+	if d3 < min {
+		min = d3
+	}
+	d4 := point_distance_to_line(e2, s1, e1)
+	if d4 < min {
+		min = d4
+	}
+	return min
+}
+
+rect_bounds_vertices :: proc(a: RectBounds) -> [4]vec2i {
+	base := [4]vec2i {
+		{a.center_x - a.width / 2, a.center_y - a.height / 2},
+		{a.center_x + a.width / 2, a.center_y - a.height / 2},
+		{a.center_x - a.width / 2, a.center_y + a.height / 2},
+		{a.center_x + a.width / 2, a.center_y + a.height / 2},
+	}
+	rotate_point_set_about(base[:], a.rot, {a.center_x, a.center_y})
+	return base
+}
+
+rect_bounds_normals :: proc(a: RectBounds) -> [4]vec2f {
+	out := [4]vec2f{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+	for &i in out {
+		i = vec2f_rotate(i, a.rot)
+	}
+	return out
+}
+rect_bounds_corner_directions :: proc(a: RectBounds) -> [4]vec2f {
+	out := [4]vec2f{{-1, 1}, {-1, -1}, {1, -1}, {1, 1}}
+	for &i in out {
+		i = vec2f_normalized(vec2f_rotate(i, a.rot))
+	}
+	return out
+}
+
+seperating_axis_theorem_collision_check :: proc(
+	a_verts: []vec2f,
+	a_norms: []vec2f,
+	a_corns: []vec2f,
+	b_verts: []vec2f,
+	b_norms: []vec2f,
+	b_corns: []vec2f,
+) -> bool {
+	for i in a_norms {
+		a_min := vec2f_dot(a_verts[0], i)
+		a_max := a_min
+		b_min := vec2f_dot(b_verts[0], i)
+		b_max := b_min
+		for j in a_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < a_min {
+				a_min = tmp
+			}
+			if tmp > a_max {
+				a_max = tmp
+			}
+		}
+		for j in b_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < b_min {
+				b_min = tmp
+			}
+			if tmp > b_max {
+				b_max = tmp
+			}
+		}
+		if a_max < b_min || b_max < a_min {
+			return false
+		}
+	}
+	for i in b_norms {
+		a_min := vec2f_dot(a_verts[0], i)
+		a_max := a_min
+		b_min := vec2f_dot(b_verts[0], i)
+		b_max := b_min
+		for j in a_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < a_min {
+				a_min = tmp
+			}
+			if tmp > a_max {
+				a_max = tmp
+			}
+		}
+		for j in b_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < b_min {
+				b_min = tmp
+			}
+			if tmp > b_max {
+				b_max = tmp
+			}
+		}
+		if a_max < b_min || b_max < a_min {
+			return false
+		}
+	}
+	for i in a_corns {
+		a_min := vec2f_dot(a_verts[0], i)
+		a_max := a_min
+		b_min := vec2f_dot(b_verts[0], i)
+		b_max := b_min
+		for j in a_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < a_min {
+				a_min = tmp
+			}
+			if tmp > a_max {
+				a_max = tmp
+			}
+		}
+		for j in b_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < b_min {
+				b_min = tmp
+			}
+			if tmp > b_max {
+				b_max = tmp
+			}
+		}
+		if a_max < b_min || b_max < a_min {
+			return false
+		}
+	}
+	for i in b_corns {
+		a_min := vec2f_dot(a_verts[0], i)
+		a_max := a_min
+		b_min := vec2f_dot(b_verts[0], i)
+		b_max := b_min
+		for j in a_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < a_min {
+				a_min = tmp
+			}
+			if tmp > a_max {
+				a_max = tmp
+			}
+		}
+		for j in b_verts {
+			tmp := vec2f_dot(j, i)
+			if tmp < b_min {
+				b_min = tmp
+			}
+			if tmp > b_max {
+				b_max = tmp
+			}
+		}
+		if a_max < b_min || b_max < a_min {
+			return false
+		}
+	}
+	return true
+}
+
+check_collision_bounds :: proc(a: RectBounds, b: RectBounds) -> bool {
+	a_verts := cast([4]vec2f)rect_bounds_vertices(a)
+	b_verts := cast([4]vec2f)rect_bounds_vertices(b)
+	a_norms := rect_bounds_normals(a)
+	b_norms := rect_bounds_normals(b)
+	a_corns := rect_bounds_corner_directions(a)
+	b_corns := rect_bounds_corner_directions(b)
+	return seperating_axis_theorem_collision_check(
+		a_verts[:],
+		a_norms[:],
+		a_corns[:],
+		b_verts[:],
+		b_norms[:],
+		b_corns[:],
+	)
 }
