@@ -2,8 +2,8 @@ package main
 import "core:encoding/json"
 import "core:fmt"
 import "core:mem"
-
-import "gc"
+import "core:thread"
+import "threadpool"
 import "utils"
 Test :: struct {
 	name:   string,
@@ -27,19 +27,35 @@ main :: proc() {
 	}
 	main_act()
 }
-
+is_prime :: proc(i: int) -> bool {
+	for j in 2 ..< i {
+		if i % j == 0 {
+			return false
+		}
+	}
+	return true
+}
 main_act :: proc() {
-	defer utils.deinit_font()
-	img := utils.image_create({255, 0, 255, 255}, 1000, 1000)
-	p0 := utils.vec2i{utils.random_in_range(0, 200), utils.random_in_range(800, 1000)}
-	p1 := utils.vec2i{utils.random_in_range(400, 600), utils.random_in_range(0, 200)}
-	p2 := utils.vec2i{utils.random_in_range(800, 1000), utils.random_in_range(800, 1000)}
-	utils.image_draw_triangle(img, p0, p1, p2, {255, 0, 0, 255})
-	utils.image_draw_circle(img, p0.x, p0.y, 5., {0, 255, 0, 255})
-	utils.image_draw_circle(img, p1.x, p1.y, 5., {0, 255, 0, 255})
-	utils.image_draw_circle(img, p2.x, p2.y, 5., {0, 255, 0, 255})
-	//utils.image_draw_text(img, "hello there toast i love you", 20, 20, 32, {255, 255, 255, 255})
-	//utils.image_draw_line(img, 200, 200, 800, 800, {255, 0, 0, 255})
-	utils.image_render_out(img, "test.png")
-	utils.image_destroy(img)
+	threadpool.thread_pool_init()
+	defer threadpool.thread_pool_fini()
+	{
+		ThreadData :: struct {
+			start: int,
+		}
+		thread_func :: proc(data: ^ThreadData) {
+			for i in data.start ..< data.start * 100 {
+				if is_prime(i) {
+					fmt.println(data.start, i)
+				}
+				for _ in 0 ..< 100 {
+					thread.yield()
+				}
+			}
+		}
+		group := threadpool.task_group_create()
+		for i in 1 ..= 100 {
+			threadpool.task_group_spawn_task(group, ThreadData{start = i}, thread_func)
+		}
+		threadpool.task_group_await(group)
+	}
 }

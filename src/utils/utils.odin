@@ -496,9 +496,9 @@ distance_between_lines :: proc(s1: vec2i, e1: vec2i, s2: vec2i, e2: vec2i) -> f3
 rect_bounds_vertices :: proc(a: RectBounds) -> [4]vec2i {
 	base := [4]vec2i {
 		{a.center_x - a.width / 2, a.center_y - a.height / 2},
-		{a.center_x + a.width / 2, a.center_y - a.height / 2},
 		{a.center_x - a.width / 2, a.center_y + a.height / 2},
 		{a.center_x + a.width / 2, a.center_y + a.height / 2},
+		{a.center_x + a.width / 2, a.center_y - a.height / 2},
 	}
 	rotate_point_set_about(base[:], a.rot, {a.center_x, a.center_y})
 	return base
@@ -653,4 +653,66 @@ check_collision_bounds :: proc(a: RectBounds, b: RectBounds) -> bool {
 		b_norms[:],
 		b_corns[:],
 	)
+}
+
+distance_between_bounds :: proc(a: RectBounds, b: RectBounds) -> f32 {
+	out: f32 = vec2f_dist(
+		cast(vec2f)vec2i{a.center_x, a.center_y},
+		cast(vec2f)vec2i{b.center_x, b.center_y},
+	)
+	if check_collision_bounds(a, b) {
+		return 0
+	}
+	a_points := rect_bounds_vertices(a)
+	b_points := rect_bounds_vertices(b)
+	for i in 0 ..< len(a_points) {
+		s1 := a_points[i]
+		e1 := a_points[(i + 1) % len(a_points)]
+		for j in 0 ..< len(b_points) {
+			s2 := b_points[j]
+			e2 := b_points[(j + 1) % len(b_points)]
+			d := distance_between_lines(s1, e1, s2, e2)
+			if d < out {
+				out = d
+			}
+		}
+	}
+	return out
+}
+
+bounds_contains_point :: proc(bounds: RectBounds, point: vec2i) -> bool {
+	p := cast(vec2f)point
+	c := cast(vec2f)vec2i{bounds.center_x, bounds.center_y}
+	adj_point := p - c
+	rot_adj_point := vec2f_rotate(adj_point, -bounds.rot)
+	w := (cast(f32)bounds.width) / 2
+	h := (cast(f32)bounds.height) / 2
+	return(
+		rot_adj_point.x >= -w &&
+		rot_adj_point.y >= -h &&
+		rot_adj_point.x <= w &&
+		rot_adj_point.y <= h \
+	)
+}
+
+get_bounding_box_of_bounds :: proc(bounds: RectBounds) -> BoundingBox {
+	points := rect_bounds_vertices(bounds)
+	return bounding_box_of_points(points[:])
+}
+
+image_draw_rect_bounds :: proc(img: ^Image, bounds: RectBounds, color: color_t) {
+	bx := get_bounding_box_of_bounds(bounds)
+	for dy in bx.y ..< bx.y + bx.height {
+		for dx in bx.x ..< bx.x + bx.width {
+			if bounds_contains_point(bounds, {dx, dy}) {
+				image_draw_pixel(img, dx, dy, color)
+			}
+		}
+	}
+}
+image_draw_rect_bounds_line :: proc(img: ^Image, bounds: RectBounds, color: color_t) {
+	verts := rect_bounds_vertices(bounds)
+	for i in 0 ..< len(verts) {
+		image_draw_line_v(img, verts[i], verts[(i + 1) % len(verts)], color)
+	}
 }

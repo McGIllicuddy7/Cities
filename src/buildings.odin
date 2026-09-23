@@ -1,6 +1,5 @@
 package main
 import "core:math"
-import "gc"
 import "utils"
 
 vec2i :: [2]i32
