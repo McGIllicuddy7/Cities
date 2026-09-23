@@ -9,7 +9,14 @@ import "core:sync"
 import "vendor:stb/image"
 import "vendor:stb/truetype"
 
+vec2i :: [2]i32
+vec2f :: [2]f32
 color_t :: [4]u8
+
+BoundingBox :: struct {
+	x, y, width, height: i32,
+}
+
 random :: proc() -> u32 {
 	return rand.uint32()
 }
@@ -18,7 +25,8 @@ random_in_range :: proc(min: i32, max: i32) -> i32 {
 	assert(min < max)
 	dist := max - min
 	tmp := random() % cast(u32)dist
-	out := cast(i32)+min
+	out := cast(i32)tmp + min
+	fmt.println("out:", out)
 	return out
 }
 
@@ -26,15 +34,6 @@ random_bool :: proc(chance: f64) -> bool {
 	assert(chance >= 0)
 	assert(chance <= 1)
 	return rand.norm_float64() < chance
-}
-
-Lambda :: struct($T: typeid) {
-	user_data: rawptr,
-	func:      proc(data: rawptr, args: T),
-}
-
-call_lambda :: proc(lambda: ^Lambda, args: $T) {
-	lambda.func(user_data, args)
 }
 
 Image :: struct {
@@ -141,6 +140,69 @@ image_draw_circle :: proc(img: ^Image, x, y: i32, radius: f32, color: color_t) {
 	}
 }
 
+image_draw_line :: proc(img: ^Image, x0, y0, x1, y1: i32, color: color_t) {
+	bounds := bounding_box_of_points({{x0, y0}, {x1, y1}})
+	for dy in bounds.y ..< bounds.y + bounds.height {
+		for dx in bounds.x ..< bounds.x + bounds.width {
+			dist := point_distance_to_line({dx, dy}, {x0, y0}, {x1, y1})
+			if dist < 0.8 {
+				image_draw_pixel(img, dx, dy, color)
+			}
+		}
+	}
+}
+
+image_draw_line_v :: proc(img: ^Image, start: vec2i, end: vec2i, color: color_t) {
+	bounds := bounding_box_of_points({start, end})
+	for dy in bounds.y ..< bounds.y + bounds.height {
+		for dx in bounds.x ..< bounds.x + bounds.width {
+			dist := point_distance_to_line({dx, dy}, start, end)
+			if dist < 0.8 {
+				image_draw_pixel(img, dx, dy, color)
+			}
+		}
+	}
+}
+
+image_draw_line_w :: proc(img: ^Image, x0, y0, x1, y1: i32, width: f32, color: color_t) {
+	bounds := bounding_box_of_points({{x0, y0}, {x1, y1}})
+	for dy in bounds.y ..< bounds.y + bounds.height {
+		for dx in bounds.x ..< bounds.x + bounds.width {
+			dist := point_distance_to_line({dx, dy}, {x0, y0}, {x1, y1})
+			if dist < width {
+				image_draw_pixel(img, dx, dy, color)
+			}
+		}
+	}
+}
+
+
+image_draw_line_vw :: proc(img: ^Image, start: vec2i, end: vec2i, width: f32, color: color_t) {
+	bounds := bounding_box_of_points({start, end})
+	for dy in bounds.y ..< bounds.y + bounds.height {
+		for dx in bounds.x ..< bounds.x + bounds.width {
+			dist := point_distance_to_line({dx, dy}, start, end)
+			if dist < width {
+				image_draw_pixel(img, dx, dy, color)
+			}
+		}
+	}
+}
+
+image_draw_triangle :: proc(img: ^Image, p0, p1, p2: vec2i, color: color_t) {
+	bounds := bounding_box_of_points({p0, p1, p2})
+	/*	bounds.x = 0
+	bounds.y = 0
+	bounds.width = img.width
+	bounds.height = img.height*/
+	for dy in bounds.y ..< bounds.y + bounds.height {
+		for dx in bounds.x ..< bounds.x + bounds.width {
+			if check_collision_triangle_point({dx, dy}, p0, p1, p2) {
+				image_draw_pixel(img, dx, dy, color)
+			}
+		}
+	}
+}
 
 image_draw_text :: proc(img: ^Image, text: string, x, y, text_height: i32, color: color_t) {
 	init_font()
@@ -205,6 +267,7 @@ FONT_GUARD: sync.Mutex
 FONT: ^truetype.fontinfo = nil
 BITMAP: []u8 = nil
 FONT_DATA: [^]u8 = nil
+
 init_font :: proc() {
 	sync.mutex_lock(&FONT_GUARD)
 	defer sync.mutex_unlock(&FONT_GUARD)
@@ -216,4 +279,181 @@ init_font :: proc() {
 	assert(err == nil)
 	FONT_DATA = &bites[0]
 	truetype.InitFont(FONT, FONT_DATA, truetype.GetFontOffsetForIndex(FONT_DATA, 0))
+}
+
+
+deinit_font :: proc() {
+	sync.mutex_lock(&FONT_GUARD)
+	defer sync.mutex_unlock(&FONT_GUARD)
+	delete(BITMAP)
+	free(FONT)
+	free(FONT_DATA)
+}
+
+point_nearest_point_on_line :: proc(point, start, end: vec2i) -> (f32, vec2i) {
+	p := cast(vec2f)point
+	s := cast(vec2f)start
+	e := cast(vec2f)end
+	guess := (e - s)
+	min := vec2f_dist(guess, p)
+	delta := (e - s) / 2
+	epsilon := vec2f_len(delta)
+	for epsilon > 0.01 {
+		ms := guess + delta
+		me := guess - delta
+		ds := vec2f_dist(ms, p)
+		de := vec2f_dist(me, p)
+		if ds < min {
+			min = ds
+			guess = ms
+		}
+		if de < min {
+			min = de
+			guess = me
+		}
+		delta /= 2
+		epsilon = vec2f_len(delta)
+	}
+	ms := vec2f_dist(p, s)
+	if ms < min {
+		min = ms
+		guess = s
+	}
+	me := vec2f_dist(p, e)
+	if me < min {
+		min = me
+		guess = e
+	}
+	return min, cast([2]i32)guess
+}
+
+
+vec2f_dist :: proc(a, b: vec2f) -> f32 {
+	return math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
+}
+
+vec2f_len :: proc(v: vec2f) -> f32 {
+	return math.sqrt(v.x * v.x + v.y * v.y)
+}
+
+vec2f_rotate :: proc(v: vec2f, angle: f32) -> vec2f {
+	len := vec2f_len(v)
+	if len == 0.0 {
+		return v
+	}
+	base_angle := math.atan2(v.y / len, v.x / len)
+	out_angle := base_angle + angle
+	out := vec2f{math.cos(out_angle) * len, math.sin(out_angle) * len}
+	return out
+}
+
+vec2f_angle :: proc(v: vec2f) -> f32 {
+	len := vec2f_len(v)
+	if len == 0.0 {
+		return 0.0
+	}
+	base_angle := math.atan2(v.y / len, v.x / len)
+	return base_angle
+}
+
+vec2f_angle_between :: proc(a: vec2f, b: vec2f) -> f32 {
+	an := vec2f_normalized(a)
+	bn := vec2f_normalized(b)
+	dot := vec2f_dot(an, bn)
+	return math.acos(dot)
+}
+
+vec2f_normalized :: proc(v: vec2f) -> vec2f {
+	len := vec2f_len(v)
+	return v / len
+}
+
+vec2f_dot :: proc(a: vec2f, b: vec2f) -> f32 {
+	return a.x * b.x + a.y * b.y
+}
+
+
+point_distance_to_line :: proc(point, start, end: vec2i) -> f32 {
+	dist, _ := point_nearest_point_on_line(point, start, end)
+	return dist
+}
+
+bounding_box_of_points :: proc(args: []vec2i) -> BoundingBox {
+	out: BoundingBox
+	if (len(args) < 0) {
+		return out
+	}
+	min_x := args[0].x
+	max_x := args[0].x
+	min_y := args[0].y
+	max_y := args[0].y
+	for i in args {
+		if i.x < min_x {
+			min_x = i.x
+		}
+		if i.x > max_x {
+			max_x = i.x
+		}
+
+		if i.y < min_y {
+			min_y = i.y
+		}
+		if i.y > max_y {
+			max_y = i.y
+		}
+	}
+	out.x = min_x
+	out.y = min_y
+	out.width = max_x - min_x + 1
+	out.height = max_y - min_y + 1
+	return out
+}
+
+check_collision_triangle_point :: proc(point: vec2i, p0: vec2i, p1: vec2i, p2: vec2i) -> bool {
+	tri := [3]vec2f{cast(vec2f)p0, cast(vec2f)p1, cast(vec2f)p2}
+	center := (tri[0] + tri[1] + tri[2]) / 3
+	@(static) average_count := 0
+	@(static) failed_count := 0
+	for di in 0 ..< 3 {
+		v0 := tri[di]
+		v1 := tri[(di + 1) % 3]
+		mid := (v0 + v1) / 2
+		n := vec2f_rotate(vec2f_normalized(v1 - v0), math.PI / 2)
+
+		delta := mid - center
+		if vec2f_dot(n, delta) < 0.0 {
+			n *= -1
+		}
+		d2 := cast(vec2f)point - mid
+		if vec2f_dot(d2, n) > 0.0 {
+			average_count += di
+			failed_count += 1
+			return false
+		}
+	}
+	/*	fmt.println(
+		"point:",
+		point,
+		"center:",
+		center,
+		"average_count:",
+		cast(f32)average_count / (cast(f32)failed_count),
+		"failed_count:",
+		failed_count,
+	)
+	for di in 0 ..< 3 {
+		v0 := tri[di]
+		v1 := tri[(di + 1) % 3]
+		fmt.println("v0:", v0, "v1:", v1)
+		mid := (v0 + v1) / 2
+		n := vec2f_rotate(vec2f_normalized(v1 - v0), math.PI / 2)
+		fmt.println("normal", n)
+		delta := mid - center
+		if vec2f_dot(n, delta) > 0.0 {
+			n *= -1
+		}
+		d2 := cast(vec2f)point - center
+		fmt.println("delta:", delta, "d2", d2, "vec2f_dot(d2, delta)", vec2f_dot(d2, delta))
+	}*/
+	return true
 }
